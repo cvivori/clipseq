@@ -168,33 +168,33 @@ if (!params.gtf && icount_check) {
 }
 
 def gtf_check = false
-String gtf_file_str = ""
-String gtf_col_3 = ""
-if (params.gtf && icount_check) {
-    if (hasExtension(params.gtf, 'gz')) {
-        gtf_file_str = "${workflow.workDir}/tmp_gtf.txt"
-        decompressGzipFile(params.gtf, gtf_file_str)
-    } else {
-        gtf_file_str = params.gtf
-        // println params.gtf
-        // gtf_file_str = "${workflow.workDir}/tmp_gtf.txt"
-        // saveURL2(params.gtf, gtf_file_str)
-    }
+// String gtf_file_str = ""
+// String gtf_col_3 = ""
+// if (params.gtf && icount_check) {
+//     if (hasExtension(params.gtf, 'gz')) {
+//         gtf_file_str = "${workflow.workDir}/tmp_gtf.txt"
+//         decompressGzipFile(params.gtf, gtf_file_str)
+//     } else {
+//         gtf_file_str = params.gtf
+//         // println params.gtf
+//         // gtf_file_str = "${workflow.workDir}/tmp_gtf.txt"
+//         // saveURL2(params.gtf, gtf_file_str)
+//     }
 
-    File gtf_file = new File(gtf_file_str)
+//     File gtf_file = new File(gtf_file_str)
 
-    boolean compatibility = check_gtf_by_line( gtf_file, 30 )
-    if (hasExtension(params.gtf, 'gz')) {
-        boolean fileSuccessfullyDeleted =  new File("${workflow.workDir}/tmp_gtf.txt").delete()
-    }
-    if (compatibility) {
-        gtf_check = true
-    }
-    if (!gtf_check) {
-        icount_check = false
-        log.warn "The supplied gtf file is not compatible with iCount. Peakcalling with iCount will be skipped"
-    }
-}
+//     boolean compatibility = check_gtf_by_line( gtf_file, 30 )
+//     if (hasExtension(params.gtf, 'gz')) {
+//         boolean fileSuccessfullyDeleted =  new File("${workflow.workDir}/tmp_gtf.txt").delete()
+//     }
+//     if (compatibility) {
+//         gtf_check = true
+//     }
+//     if (!gtf_check) {
+//         icount_check = false
+//         log.warn "The supplied gtf file is not compatible with iCount. Peakcalling with iCount will be skipped"
+//     }
+// }
 
 // Has the run name been specified by the user?
 // this has the bonus effect of catching both -name and --name
@@ -476,6 +476,38 @@ if (!params.fai) {
 }
 
 /*
+ * Checking GTF
+ */
+if (params.gtf){
+
+    def out_side_var = 'false'
+    log.info out_side_var
+    ch_test = Channel.empty()
+    process test_process {
+
+        input:
+        file ('premap/*') from ch_test.collect().ifEmpty([])
+
+        output:
+        env test_var into ch_result
+
+        script:
+        """
+        export test_var="true"
+        """
+
+    }
+    
+    out_side_var = ch_result.view()
+    //out_side_var = ch_result.dump()
+    //ch_result.toList().subscribe onNext: { log.info it }
+    log.info out_side_var.toString()
+    if (out_side_var=='true'){
+        log.info "hello world"
+    }
+}
+
+/*
  * Generating STAR index
  */
 
@@ -490,6 +522,9 @@ if (!params.star_index) {
             ch_gtf_star = Channel
                 .fromPath(params.gtf, checkIfExists: true)
                 .ifEmpty { exit 1, "Genome reference gtf not found: ${params.gtf}" }
+            
+            ch_check_gtf = Channel
+                .fromPath(params.gtf, checkIfExists: true)
         }
     }
 
@@ -534,6 +569,7 @@ if (!params.star_index) {
 
                 output:
                 path("*.gtf") into ch_gtf_star
+                path("*.gtf") into ch_check_gtf
 
                 script:
 
