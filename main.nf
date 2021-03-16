@@ -1481,39 +1481,39 @@ def hasExtension(it, extension) {
     it.toString().toLowerCase().endsWith(extension.toLowerCase())
 }
 
-// Decompress file
-def decompressGzipFile(String gzipFile, String newFile) {
-    try {
-        FileInputStream fis = new FileInputStream(gzipFile);
-        GZIPInputStream gis = new GZIPInputStream(fis);
-        FileOutputStream fos = new FileOutputStream(newFile);
-        byte[] buffer = new byte[1024];
-        int len;
-        while((len = gis.read(buffer)) != -1){
-            fos.write(buffer, 0, len);
-        }
-        //close resources
-        fos.close();
-        gis.close();
-    } catch (IOException e) {
-        e.printStackTrace();
-    }
-}
+// // Decompress file
+// def decompressGzipFile(String gzipFile, String newFile) {
+//     try {
+//         FileInputStream fis = new FileInputStream(gzipFile);
+//         GZIPInputStream gis = new GZIPInputStream(fis);
+//         FileOutputStream fos = new FileOutputStream(newFile);
+//         byte[] buffer = new byte[1024];
+//         int len;
+//         while((len = gis.read(buffer)) != -1){
+//             fos.write(buffer, 0, len);
+//         }
+//         //close resources
+//         fos.close();
+//         gis.close();
+//     } catch (IOException e) {
+//         e.printStackTrace();
+//     }
+// }
 
-def saveURL2(String FILE_URL, String FILE_NAME) {
-    try (BufferedInputStream in = new BufferedInputStream(new URL(FILE_URL).openStream());
-    FileOutputStream fileOutputStream = new FileOutputStream(FILE_NAME)) {
-        byte dataBuffer[] = new byte[1024];
-        int bytesRead;
-        while ((bytesRead = in.read(dataBuffer, 0, 1024)) != -1) {
-            fileOutputStream.write(dataBuffer, 0, bytesRead);
-        }
-        println 'finished?'
-    } catch (IOException e) {
-        println 'exception'
-        // handle exception
-    }
-}
+// def saveURL2(String FILE_URL, String FILE_NAME) {
+//     try (BufferedInputStream in = new BufferedInputStream(new URL(FILE_URL).openStream());
+//     FileOutputStream fileOutputStream = new FileOutputStream(FILE_NAME)) {
+//         byte dataBuffer[] = new byte[1024];
+//         int bytesRead;
+//         while ((bytesRead = in.read(dataBuffer, 0, 1024)) != -1) {
+//             fileOutputStream.write(dataBuffer, 0, bytesRead);
+//         }
+//         println 'finished?'
+//     } catch (IOException e) {
+//         println 'exception'
+//         // handle exception
+//     }
+// }
 
 // def saveURL(String url, String FILE_NAME) {
 //     ReadableByteChannel readableByteChannel = Channels.newChannel(url.openStream());
@@ -1522,39 +1522,39 @@ def saveURL2(String FILE_URL, String FILE_NAME) {
 //     fileOutputStream.getChannel().transferFrom(readableByteChannel, 0, Long.MAX_VALUE);
 // }
 
-def boolean check_gtf_by_line( File f, int n ) {
-  boolean compatible = false
-  int count = 0
-  boolean gene = false
-  boolean ensembl = false
-  boolean gencode = false
-  println f
-  f.withReader('UTF-8') { r ->
-    while( count<n && ( !gene && ( !ensembl || !gencode ) ) ) {
-        line = r.readLine();
-        count = count + 1;
-        if (!gene) {
-            if (line =~ /\bgene\b/) {
-                gene = true
-            }
-        };
-        if (gene && !ensembl) {
-            if(line.contains('ensembl')) {
-                ensembl = true
-            }
-        };
-        if (!gene && !gencode) {
-            if(line.contains('GENCODE')){
-                gencode = true
-            }
-        };
-        if (gene && ( ensembl || gencode )) {
-            compatible = true
-        };
-    }
-  }
-  compatible
-}
+// def boolean check_gtf_by_line( File f, int n ) {
+//   boolean compatible = false
+//   int count = 0
+//   boolean gene = false
+//   boolean ensembl = false
+//   boolean gencode = false
+//   println f
+//   f.withReader('UTF-8') { r ->
+//     while( count<n && ( !gene && ( !ensembl || !gencode ) ) ) {
+//         line = r.readLine();
+//         count = count + 1;
+//         if (!gene) {
+//             if (line =~ /\bgene\b/) {
+//                 gene = true
+//             }
+//         };
+//         if (gene && !ensembl) {
+//             if(line.contains('ensembl')) {
+//                 ensembl = true
+//             }
+//         };
+//         if (!gene && !gencode) {
+//             if(line.contains('GENCODE')){
+//                 gencode = true
+//             }
+//         };
+//         if (gene && ( ensembl || gencode )) {
+//             compatible = true
+//         };
+//     }
+//   }
+//   compatible
+// }
 
 def nfcoreHeader() {
     // Log colors ANSI codes
