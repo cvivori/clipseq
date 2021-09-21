@@ -628,7 +628,7 @@ process align {
 
     output:
     tuple val(name), path("${name}.Aligned.sortedByCoord.out.bam"), path("${name}.Aligned.sortedByCoord.out.bam.bai") into ch_aligned, ch_aligned_preseq, ch_aligned_rseqc
-    path "*.Log.final.out" into ch_align_mqc, ch_align_qc
+    path "*.Log.final.out" into ch_align_mqc, ch_align_qc, ch_align_qc2
 
     script:
     clip_args = "--outFilterMultimapNmax 1 \
@@ -714,7 +714,7 @@ if (!params.skip_deduplication) {
 } else {
     ch_dedup = ch_aligned
     ch_dedup_mqc = Channel.empty()
-    ch_dedup_qc = Channel.empty()
+    ch_dedup_qc = ch_align_qc2
     ch_dedup_rseqc = ch_aligned_rseqc
 }
 
@@ -1060,9 +1060,7 @@ process clipqc {
     input:
     file ('premap/*') from ch_premap_qc.collect().ifEmpty([])
     file ('mapped/*') from ch_align_qc.collect().ifEmpty([])
-    if (!params.skip_deduplication) { 
-        file ('dedup/*') from ch_dedup_qc.collect().ifEmpty([]) 
-    }
+    file ('dedup/*') from ch_dedup_qc.collect().ifEmpty([]) 
     file ('xlinks/*') from ch_xlinks_qc.collect().ifEmpty([])
     path ('icount/*') from ch_icount_qc.collect().ifEmpty([])
     file ('paraclu/*') from ch_paraclu_qc.collect().ifEmpty([])
