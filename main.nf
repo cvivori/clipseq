@@ -579,8 +579,8 @@ process cutadapt {
     script:
     """
     ln -s $reads ${name}.fastq.gz
-    cutadapt -j ${task.cpus} -a ${params.adapter} -m 20 -o ${name}.trimmed1.fastq.gz ${name}.fastq.gz > ${name}_cutadapt1.log
-    cutadapt -j ${task.cpus} -g GCACTCTGAGCAATACC -m 20 -o ${name}.trimmed.fastq.gz ${name}.trimmed1.fastq.gz > ${name}_cutadapt.log
+    cutadapt -j ${task.cpus} -a ${params.adapter} -m 20 -q 20 -o ${name}.trimmed1.fastq.gz ${name}.fastq.gz > ${name}_cutadapt1.log
+    cutadapt -j ${task.cpus} -g GCACTCTGAGCAATACC -m 20 -q 20 -o ${name}.trimmed.fastq.gz ${name}.trimmed1.fastq.gz > ${name}_cutadapt.log
     """
 }
 
