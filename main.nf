@@ -85,6 +85,12 @@ if(!params.smrna_fasta) {
     }
 }
 
+/*---- Check That if Universal_Adapter is defined, Skip_duplication is ON ---*/
+
+if (!params.skip_deduplication && params.universal_adapter) {
+    exit 1, "Invalid combination: ${params.skip_deduplication} has to be added, if ${params.universal_adapter} is defined. Only reads where the Universal Adapter is trimmed will be considered for the analysis, the others will be output in .untrimmed.fastq.gz."
+}   
+
 /*---- Check Peakcaller Options ---*/
 
 callerList = [ 'icount', 'paraclu', 'pureclip', 'piranha']
@@ -184,8 +190,10 @@ if (params.save_index)                           summary['Save STAR index?'] = p
 if (params.smrna_org)                            summary['SmallRNA organism ref'] = params.smrna_org
 if (params.smrna_fasta)                          summary['SmallRNA ref'] = params.smrna_fasta
 if (params.move_umi)                             summary['UMI pattern'] = params.move_umi
-// if (!params.skip_deduplication)                  summary['Deduplicate'] = params.deduplicate
+if (!params.skip_deduplication)                  summary['Deduplicate'] = params.deduplicate
 // if (!params.skip_deduplication && params.umi_separator) summary['UMI separator'] = params.umi_separator
+if (params.adapter)                  summary['Illumina Adapter'] = params.adapter
+if (params.skip_deduplication && params.universal_adapter)                  summary['Universal Adapter'] = params.universal_adapter
 if (params.peakcaller)                           summary['Peak caller'] = params.peakcaller
 if (params.segment)                              summary['iCount segment'] = params.segment
 if (icount_check)                                summary['Half window'] = params.half_window
@@ -574,13 +582,14 @@ process cutadapt {
 
     output:
     tuple val(name), path("${name}.trimmed.fastq.gz") into ch_trimmed
+    tuple val(name), path("${name}.untrimmed.fastq.gz") into ch_untrimmed
     path "*.log" into ch_cutadapt_mqc
 
     script:
     """
     ln -s $reads ${name}.fastq.gz
     cutadapt -j ${task.cpus} -a ${params.adapter} -m 20 -o ${name}.trimmed1.fastq.gz ${name}.fastq.gz > ${name}_cutadapt1.log
-    cutadapt -j ${task.cpus} -g GCACTCTGAGCAATACC -m 20 -o ${name}.trimmed.fastq.gz --untrimmed-output ${name}.untrimmed.fastq.gz ${name}.trimmed1.fastq.gz > ${name}_cutadapt.log
+    cutadapt -j ${task.cpus} -g ${params.universal_adapter} -m 20 -o ${name}.trimmed.fastq.gz --untrimmed-output ${name}.untrimmed.fastq.gz ${name}.trimmed1.fastq.gz > ${name}_cutadapt.log 
     """
 }
 
