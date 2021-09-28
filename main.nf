@@ -572,6 +572,8 @@ if (params.move_umi) {
 /*
  * STEP 2 - Read trimming
  */
+if (params.universal_adapter) {
+
 process cutadapt {
     tag "$name"
     label 'process_high'
@@ -588,9 +590,31 @@ process cutadapt {
     script:
     """
     ln -s $reads ${name}.fastq.gz
-    cutadapt -j ${task.cpus} -a ${params.adapter} -m 20 -o ${name}.trimmed1.fastq.gz ${name}.fastq.gz > ${name}_cutadapt1.log
-    cutadapt -j ${task.cpus} -g ${params.universal_adapter} -m 20 -o ${name}.trimmed.fastq.gz --untrimmed-output ${name}.untrimmed.fastq.gz ${name}.trimmed1.fastq.gz > ${name}_cutadapt.log 
+    cutadapt -j ${task.cpus} -a ${params.adapter} -m 20 -o ${name}.trimmed1.fastq.gz ${name}.fastq.gz > ${name}_cutadapt.log
+    cutadapt -j ${task.cpus} -g ${params.universal_adapter} -m 20 -o ${name}.trimmed.fastq.gz --untrimmed-output ${name}.untrimmed.fastq.gz ${name}.trimmed1.fastq.gz > ${name}_cutadapt_univ.log 
     """
+
+} else {
+
+process cutadapt {
+    tag "$name"
+    label 'process_high'
+    publishDir "${params.outdir}/cutadapt", mode: params.publish_dir_mode
+
+    input:
+    tuple val(name), path(reads) from ch_umi_moved
+
+    output:
+    tuple val(name), path("${name}.trimmed.fastq.gz") into ch_trimmed
+    path "*.log" into ch_cutadapt_mqc
+
+    script:
+    """
+    ln -s $reads ${name}.fastq.gz
+    cutadapt -j ${task.cpus} -a ${params.adapter} -m 20 -o ${name}.trimmed.fastq.gz ${name}.fastq.gz > ${name}_cutadapt.log
+    """
+    }
+
 }
 
 /*
