@@ -88,7 +88,7 @@ if(!params.smrna_fasta) {
 /*---- Check That if Universal_Adapter is defined, Skip_duplication is ON ---*/
 
 if (!params.skip_deduplication && params.universal_adapter) {
-    exit 1, "Invalid combination: ${params.skip_deduplication} has to be added, if ${params.universal_adapter} is defined. Only reads where the Universal Adapter is trimmed will be considered for the analysis, the others will be output in .untrimmed.fastq.gz."
+    exit 1, "Invalid combination: --skip_deduplication has to be true, if ${params.universal_adapter} is defined. Only reads where the Universal Adapter is trimmed will be considered for the analysis, the others will be output in .untrimmed.fastq.gz."
 }   
 
 /*---- Check Peakcaller Options ---*/
@@ -574,7 +574,7 @@ if (params.move_umi) {
  */
 if (params.universal_adapter) {
 
-process cutadapt {
+process cutadapt_univ {
     tag "$name"
     label 'process_high'
     publishDir "${params.outdir}/cutadapt", mode: params.publish_dir_mode
@@ -594,7 +594,7 @@ process cutadapt {
     cutadapt -j ${task.cpus} -g ${params.universal_adapter} -m 20 -o ${name}.trimmed.fastq.gz --untrimmed-output ${name}.untrimmed.fastq.gz ${name}.trimmed1.fastq.gz > ${name}_cutadapt_univ.log 
     """
     }
-    
+
 } else {
 
 process cutadapt {
