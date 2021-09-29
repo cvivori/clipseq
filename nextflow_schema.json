@@ -111,6 +111,12 @@
                     "default": "AGATCGGAAGAGC",
                     "fa_icon": "fas fa-angle-double-left"
                 },
+                "universal_adapter": {
+                    "type": "string",
+                    "description": "Universal adapter for trimming and selecting reads",
+                    "default": "",
+                    "fa_icon": "fas fa-angle-double-left"
+                },
                 "move_umi": {
                     "type": "string",
                     "fa_icon": "fas fa-barcode",
