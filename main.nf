@@ -85,6 +85,12 @@ if(!params.smrna_fasta) {
     }
 }
 
+/*---- Check That if Universal_Adapter is defined, Skip_duplication is ON ---*/
+
+if (!params.skip_deduplication && params.universal_adapter) {
+    exit 1, "Invalid combination: --skip_deduplication has to be true, if ${params.universal_adapter} is defined. Only reads where the Universal Adapter is trimmed will be considered for the analysis, the others will be output in .untrimmed.fastq.gz."
+}   
+
 /*---- Check Peakcaller Options ---*/
 
 callerList = [ 'icount', 'paraclu', 'pureclip', 'piranha']
@@ -184,8 +190,10 @@ if (params.save_index)                           summary['Save STAR index?'] = p
 if (params.smrna_org)                            summary['SmallRNA organism ref'] = params.smrna_org
 if (params.smrna_fasta)                          summary['SmallRNA ref'] = params.smrna_fasta
 if (params.move_umi)                             summary['UMI pattern'] = params.move_umi
-if (params.deduplicate)                          summary['Deduplicate'] = params.deduplicate
-if (params.deduplicate && params.umi_separator)  summary['UMI separator'] = params.umi_separator
+if (!params.skip_deduplication)                  summary['Deduplicate'] = params.deduplicate
+// if (!params.skip_deduplication && params.umi_separator) summary['UMI separator'] = params.umi_separator
+if (params.adapter)                  summary['Illumina Adapter'] = params.adapter
+if (params.skip_deduplication && params.universal_adapter)                  summary['Universal Adapter'] = params.universal_adapter
 if (params.peakcaller)                           summary['Peak caller'] = params.peakcaller
 if (params.segment)                              summary['iCount segment'] = params.segment
 if (icount_check)                                summary['Half window'] = params.half_window
@@ -564,6 +572,30 @@ if (params.move_umi) {
 /*
  * STEP 2 - Read trimming
  */
+if (params.universal_adapter) {
+process cutadapt_univ {
+    tag "$name"
+    label 'process_high'
+    publishDir "${params.outdir}/cutadapt", mode: params.publish_dir_mode
+
+    input:
+    tuple val(name), path(reads) from ch_umi_moved
+
+    output:
+    tuple val(name), path("${name}.trimmed.fastq.gz") into ch_trimmed
+    tuple val(name), path("${name}.untrimmed.fastq.gz") into ch_untrimmed
+    path "*.log" into ch_cutadapt_mqc
+
+    script:
+    """
+    ln -s $reads ${name}.fastq.gz
+    cutadapt -j ${task.cpus} -a ${params.adapter} -m 20 -o ${name}.trimmed1.fastq.gz ${name}.fastq.gz > ${name}_cutadapt.log
+    cutadapt -j ${task.cpus} -g ${params.universal_adapter} -m 20 -o ${name}.trimmed.fastq.gz --untrimmed-output ${name}.untrimmed.fastq.gz ${name}.trimmed1.fastq.gz > ${name}_cutadapt_univ.log 
+    """
+    }
+
+} else {
+
 process cutadapt {
     tag "$name"
     label 'process_high'
@@ -579,8 +611,10 @@ process cutadapt {
     script:
     """
     ln -s $reads ${name}.fastq.gz
-    cutadapt -j $task.cpus -a ${params.adapter} -m 12 -o ${name}.trimmed.fastq.gz ${name}.fastq.gz > ${name}_cutadapt.log
+    cutadapt -j ${task.cpus} -a ${params.adapter} -m 20 -o ${name}.trimmed.fastq.gz ${name}.fastq.gz > ${name}_cutadapt.log
     """
+    }
+
 }
 
 /*
@@ -627,8 +661,8 @@ process align {
     path(index) from ch_star_index.collect()
 
     output:
-    tuple val(name), path("${name}.Aligned.sortedByCoord.out.bam"), path("${name}.Aligned.sortedByCoord.out.bam.bai") into ch_aligned, ch_aligned_preseq
-    path "*.Log.final.out" into ch_align_mqc, ch_align_qc
+    tuple val(name), path("${name}.Aligned.sortedByCoord.out.bam"), path("${name}.Aligned.sortedByCoord.out.bam.bai") into ch_aligned, ch_aligned_preseq, ch_aligned_rseqc
+    path "*.Log.final.out" into ch_align_mqc, ch_align_qc, ch_align_qc2
 
     script:
     clip_args = "--outFilterMultimapNmax 1 \
@@ -659,7 +693,8 @@ process align {
 /*
  * STEP 5 - Aligning QC
  */
-process preseq {
+if (!params.skip_preseq) {
+    process preseq {
     tag "$name"
     label 'process_low'
     publishDir "${params.outdir}/preseq", mode: params.publish_dir_mode
@@ -681,12 +716,15 @@ process preseq {
         $bam
     cp .command.err ${name}.command.log
     """
+    }
+} else {
+    ch_preseq_mqc = Channel.empty()
 }
 
 /*
  * STEP 6 - Deduplicate
  */
-if (params.deduplicate) {
+if (!params.skip_deduplication) {
     process dedup {
         tag "$name"
         label 'process_high'
@@ -714,15 +752,15 @@ if (params.deduplicate) {
 } else {
     ch_dedup = ch_aligned
     ch_dedup_mqc = Channel.empty()
-    ch_dedup_qc = Channel.empty()
-    ch_dedup_rseqc = ch_aligned
+    ch_dedup_qc = ch_align_qc2
+    ch_dedup_rseqc = ch_aligned_rseqc
 }
 
 /*
  * STEP 6a - RSeQC
  */
 if (params.gtf) {
-    
+
     ch_gtf_rseqc = Channel
         .fromPath(params.gtf, checkIfExists: true)
         .ifEmpty { exit 1, "Genome reference gtf not found: ${params.gtf}" }
@@ -861,6 +899,7 @@ if ('paraclu' in callers) {
 
         output:
         tuple val(name), path("${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed.gz") into ch_peaks_paraclu
+        path "*[pn][oe][sg].peaks.bed" into ch_paraclu_strand 
         path "*.peaks.bed.gz" into ch_paraclu_qc
 
         script:
@@ -875,10 +914,13 @@ if ('paraclu' in callers) {
         paraclu ${min_value} paraclu_input.tsv | \\
         paraclu-cut -d ${min_density_increase} -l ${max_cluster_length} | \\
         awk '{OFS = "\t"}{print \$1, \$3-1, \$4, ".", \$6, \$2}' | \\
-        bedtools sort | \\
-        pigz > ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed.gz
+        bedtools sort > ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed
+        awk '\$6 == "+" {print}' ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed > ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}_pos.peaks.bed
+        awk '\$6 == "-" {print}' ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed > ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}_neg.peaks.bed
+        pigz ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed 
         """
     }
+
 
     if (params.motif) {
         process paraclu_motif_dreme {
@@ -1055,12 +1097,12 @@ if ('piranha' in callers) {
  */
 process clipqc {
     label 'process_low'
-    publishDir "${params.outdir}/clipqc", mode: params.publish_dir_mode 
+    publishDir "${params.outdir}/clipqc", mode: params.publish_dir_mode
 
     input:
     file ('premap/*') from ch_premap_qc.collect().ifEmpty([])
     file ('mapped/*') from ch_align_qc.collect().ifEmpty([])
-    file ('dedup/*') from ch_dedup_qc.collect().ifEmpty([])
+    file ('dedup/*') from ch_dedup_qc.collect().ifEmpty([]) 
     file ('xlinks/*') from ch_xlinks_qc.collect().ifEmpty([])
     path ('icount/*') from ch_icount_qc.collect().ifEmpty([])
     file ('paraclu/*') from ch_paraclu_qc.collect().ifEmpty([])
@@ -1069,7 +1111,7 @@ process clipqc {
 
     output:
     path "*.tsv" into ch_clipqc_mqc
-    
+
     script:
     clip_qc_args = ''
 
@@ -1290,11 +1332,11 @@ def checkHostname() {
         params.hostnames.each { prof, hnames ->
             hnames.each { hname ->
                 if (hostname.contains(hname) && !workflow.profile.contains(prof)) {
-                    log.error '====================================================\n' +
+                    log.error "${c_red}====================================================${c_reset}\n" +
                             "  ${c_red}WARNING!${c_reset} You are running with `-profile $workflow.profile`\n" +
                             "  but your machine hostname is ${c_white}'$hostname'${c_reset}\n" +
                             "  ${c_yellow_bold}It's highly recommended that you use `-profile $prof${c_reset}`\n" +
-                            '============================================================'
+                            "${c_red}====================================================${c_reset}\n"
                 }
             }
         }
