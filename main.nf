@@ -1095,6 +1095,7 @@ if ('piranha' in callers) {
 /*
  * STEP 8 - QC plots
  */
+if (!params.skip_clipqc) {
 process clipqc {
     label 'process_low'
     publishDir "${params.outdir}/clipqc", mode: params.publish_dir_mode
@@ -1134,6 +1135,9 @@ process clipqc {
     """
     clip_qc.py $clip_qc_args
     """
+    }
+} else {
+    ch_clipqc_mqc = Channel.empty()
 }
 
 /*
