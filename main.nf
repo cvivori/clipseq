@@ -607,12 +607,13 @@ process cutadapt {
 
     output:
     tuple val(name), path("${name}.trimmed.fastq.gz") into ch_trimmed
+    tuple val(name), path("${name}.untrimmed.fastq.gz") into ch_untrimmed
     path "*.log" into ch_cutadapt_mqc
 
     script:
     """
     ln -s $reads ${name}.fastq.gz
-    cutadapt -j ${task.cpus} -a ${params.adapter} -m 20 -o ${name}.trimmed.fastq.gz ${name}.fastq.gz > ${name}_cutadapt.log
+    cutadapt -j ${task.cpus} -a ${params.adapter} --action=lowercase -m 20 -o ${name}.trimmed.fastq.gz --untrimmed-output ${name}.untrimmed.fastq.gz ${name}.fastq.gz > ${name}_cutadapt.log
     """
     }
 
@@ -663,6 +664,7 @@ process align {
 
     output:
     tuple val(name), path("${name}.Aligned.sortedByCoord.out.bam"), path("${name}.Aligned.sortedByCoord.out.bam.bai") into ch_aligned, ch_aligned_preseq, ch_aligned_rseqc
+    path "*.ReadsPerGene.out.*" into ch_align_counts
     path "*.Log.final.out" into ch_align_mqc, ch_align_qc, ch_align_qc2
 
     script:
@@ -684,6 +686,7 @@ process align {
         --runMode alignReads \\
         --genomeDir $index \\
         --readFilesIn $reads --readFilesCommand gunzip -c \\
+        --quantMode GeneCounts \\
         --outFileNamePrefix ${name}. $clip_args
 
     samtools sort -@ $task.cpus -o ${name}.Aligned.sortedByCoord.out.bam ${name}.Aligned.out.bam
