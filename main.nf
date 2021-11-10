@@ -190,7 +190,7 @@ if (params.save_index)                           summary['Save STAR index?'] = p
 if (params.smrna_org)                            summary['SmallRNA organism ref'] = params.smrna_org
 if (params.smrna_fasta)                          summary['SmallRNA ref'] = params.smrna_fasta
 if (params.move_umi)                             summary['UMI pattern'] = params.move_umi
-if (!params.skip_deduplication)                  summary['Deduplicate'] = params.deduplicate
+// if (!params.skip_deduplication)                  summary['Deduplicate'] = params.deduplicate
 // if (!params.skip_deduplication && params.umi_separator) summary['UMI separator'] = params.umi_separator
 if (params.adapter)                  summary['Illumina Adapter'] = params.adapter
 if (params.skip_deduplication && params.universal_adapter)                  summary['Universal Adapter'] = params.universal_adapter
@@ -201,6 +201,8 @@ if (icount_check)                                summary['Merge window'] = param
 if ('paraclu' in callers)                        summary['Min value'] = params.min_value
 if ('paraclu' in callers)                        summary['Max density increase'] = params.min_density_increase
 if ('paraclu' in callers)                        summary['Max cluster length'] = params.max_cluster_length
+if ('paraclu' in callers)                        summary['Min. cluster'] = params.min_cluster
+if ('paraclu' in callers)                        summary['Cluster Threshold'] = params.tpm_cluster_threshold
 if ('pureclip' in callers)                       summary['Protein binding parameter'] = params.pureclip_bc
 if ('pureclip' in callers)                       summary['Crosslink merge distance'] = params.pureclip_dm
 if ('pureclip' in callers)                       summary['Chromosomes for HMM'] = params.pureclip_iv
@@ -328,7 +330,7 @@ if (params.fasta) {
     } else {
         Channel
             .fromPath(params.fasta, checkIfExists: true)
-            .into { ch_fasta; ch_fasta_fai; ch_fasta_dreme_icount; ch_fasta_dreme_paraclu; ch_fasta_pureclip; ch_fasta_dreme_pureclip; ch_fasta_dreme_piranha }
+            .into { ch_fasta;  ch_fasta_chrom; ch_fasta_fai; ch_fasta_dreme_icount; ch_fasta_dreme_paraclu; ch_fasta_pureclip; ch_fasta_dreme_pureclip; ch_fasta_dreme_piranha }
     }
 }
 
@@ -342,13 +344,28 @@ if (params.fasta) {
             path(fasta_gz) from ch_fasta_gz
 
             output:
-            path("*.fa") into (ch_fasta, ch_fasta_fai, ch_fasta_dreme_icount, ch_fasta_dreme_paraclu, ch_fasta_pureclip, ch_fasta_dreme_pureclip, ch_fasta_dreme_piranha)
+            path("*.fa") into (ch_fasta, ch_fasta_chrom, ch_fasta_fai, ch_fasta_dreme_icount, ch_fasta_dreme_paraclu, ch_fasta_pureclip, ch_fasta_dreme_pureclip, ch_fasta_dreme_piranha)
 
             script:
             """
             pigz -d -c $fasta_gz > ${fasta_gz.baseName}
             """
         }
+    }
+
+    process get_chrom_sizes {
+        label 'process_low'
+        
+        input:
+        file fasta from ch_fasta_chrom
+        
+        output:
+        file "*.txt" into ch_chrom_sizes
+
+        shell:
+        '''
+        cat !{fasta} |  awk '$0 ~ ">" {if (NR > 1) {print c;} c=0;printf substr($0,2,100) "\t"; } $0 !~ ">" {c+=length($0);} END { print c; }' > chrom_sizes.txt
+        '''
     }
 }
 
@@ -364,7 +381,7 @@ if (!params.fai) {
         path(fasta) from ch_fasta_fai
 
         output:
-        path("*.fai") into (ch_fai_crosslinks, ch_fai_icount, ch_fai_icount_motif, ch_fai_paraclu_motif, ch_fai_pureclip_motif, ch_fai_piranha_motif)
+        path("*.fai") into (ch_fai_crosslinks, ch_fai_ctss, ch_fai_icount, ch_fai_icount_motif, ch_fai_paraclu_motif, ch_fai_pureclip_motif, ch_fai_piranha_motif)
 
         script:
         """
@@ -663,8 +680,8 @@ process align {
     path(index) from ch_star_index.collect()
 
     output:
-    tuple val(name), path("${name}.Aligned.sortedByCoord.out.bam"), path("${name}.Aligned.sortedByCoord.out.bam.bai") into ch_aligned, ch_aligned_preseq, ch_aligned_rseqc
-    path "*.ReadsPerGene.out.*" into ch_align_counts
+    tuple val(name), path("${name}.Aligned.sortedByCoord.out.bam"), path("${name}.Aligned.sortedByCoord.out.bam.bai") into ch_aligned, ch_aligned_preseq, ch_aligned_rseqc, ch_aligned_ctss
+    path "*.ReadsPerGene.out.*" into ch_align_ctss
     path "*.Log.final.out" into ch_align_mqc, ch_align_qc, ch_align_qc2
 
     script:
@@ -734,7 +751,7 @@ if (!params.skip_deduplication) {
         tuple val(name), path(bam), path(bai) from ch_aligned
 
         output:
-        tuple val(name), path("${name}.dedup.bam"), path("${name}.dedup.bam.bai") into ch_dedup, ch_dedup_pureclip, ch_dedup_rseqc
+        tuple val(name), path("${name}.dedup.bam"), path("${name}.dedup.bam.bai") into ch_dedup, ch_dedup_pureclip, ch_dedup_rseqc, ch_dedup_ctss
         path "*.log" into ch_dedup_mqc, ch_dedup_qc
 
         script:
@@ -754,6 +771,7 @@ if (!params.skip_deduplication) {
     ch_dedup_mqc = Channel.empty()
     ch_dedup_qc = ch_align_qc2
     ch_dedup_rseqc = ch_aligned_rseqc
+    ch_dedup_ctss = ch_aligned_ctss
 }
 
 /*
@@ -818,6 +836,63 @@ process get_crosslinks {
     zcat ${name}.xl.bed.gz | awk '{OFS = "\t"}{if (\$6 == "+") {print \$1, \$2, \$3, \$5} else {print \$1, \$2, \$3, -\$5}}' | pigz > ${name}.xl.bedgraph.gz
     """
 }
+
+/*
+ * STEP 7b - Calculate counts/tpms
+ */
+process get_ctss {
+    tag "$name"
+    label 'process_medium'
+    publishDir "${params.outdir}/ctss", mode: params.publish_dir_mode
+
+    input:
+    tuple val(name), path(bam), path(bai) from ch_dedup_ctss
+    path(fai) from ch_fai_ctss.collect()
+    path(chrom_sizes) from ch_chrom_sizes
+
+    output:
+    path("*_ctss.bed") into (ctss_counts, ctss_counts_qc)
+    path("*_ctss.bedgraph") into (ctss_counts_bedgraph)
+
+    script:
+    """
+    bedtools bamtobed -i $bam > dedup.bed
+    bedtools shift -m 1 -p -1 -i dedup.bed -g $fai > shifted.bed
+    awk 'BEGIN{OFS="\t"}{if(\$6=="+"){print \$1,\$2,\$5}}' shifted.bed  | sort -k1,1 -k2,2n | groupBy -i stdin -g 1,2 -c 3 -o count | awk -v x="${name}" 'BEGIN{OFS="\t"}{print \$1,\$2,\$2+1,  x  ,\$3,"+"}' >> ${name}.pos.ctss.bed
+    awk 'BEGIN{OFS="\t"}{if(\$6=="-"){print \$1,\$3,\$5}}' shifted.bed | sort -k1,1 -k2,2n | groupBy -i stdin -g 1,2 -c 3 -o count | awk -v x="${name}" 'BEGIN{OFS="\t"}{print \$1,\$2-1,\$2, x  ,\$3,"-"}' >> ${name}.neg.ctss.bed
+    cat ${name}.pos_ctss.bed ${name}.neg_ctss.bed | sort -k1,1 -k2,2n > ${name}_ctss.bed
+
+    bedtools genomecov -bg -i ${name}_ctss.bed -g ${chrom_sizes} |  sort -k1,1 -k2,2n - > ${name}_ctss.bedgraph
+    
+    """
+}
+
+/**
+* STEP 7c - Cluster CTSS files
+*/
+ctss_counts = ctss_counts.collect().dump(tag:"ctss_counts")
+process cluster_ctss {
+    label "process_high"
+    publishDir "${params.outdir}/ctss/clusters", mode: params.publish_dir_mode
+
+    input:
+    file ctss from ctss_counts.collect()
+
+    output:
+    file "*.bed" into ctss_clusters
+
+    shell:
+    '''
+    process_ctss.sh -t !{params.tpm_cluster_threshold} !{ctss}
+    paraclu !{params.min_cluster} "ctss_all_pos_4Ps" > "ctss_all_pos_clustered"
+    paraclu !{params.min_cluster} "ctss_all_neg_4Ps" > "ctss_all_neg_clustered"
+    paraclu-cut  "ctss_all_pos_clustered" >  "ctss_all_pos_clustered_simplified"
+    paraclu-cut  "ctss_all_neg_clustered" >  "ctss_all_neg_clustered_simplified"
+    cat "ctss_all_pos_clustered_simplified" "ctss_all_neg_clustered_simplified" >  "ctss_all_clustered_simplified"
+    awk -F '\t' '{print $1"\t"$3"\t"$4"\t"$1":"$3".."$4","$2"\t"$6"\t"$2}' "ctss_all_clustered_simplified" >  "ctss_all_clustered_simplified.bed"
+    '''
+}
+
 
 /*
  * STEP 8a - Peak-call (iCount)
