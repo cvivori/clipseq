@@ -928,15 +928,15 @@ if ('paraclu' in callers) {
         awk '{OFS = "\t"; coord=\$1 ":" \$3-1 "-" \$4 }  {print \$1, \$3-1, \$4, coord, \$6, \$2}' | \\
         bedtools sort > ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed
 
-        awk '{OFS = "\t"} {if (\$6 == "+") {print}}' ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed > ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}_pstr.peaks.bed     
-        awk '{OFS = "\t"} {if (\$6 == "-") {print}}' ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed > ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}_mstr.peaks.bed     
-
+        awk '{OFS = "\t"} {if (\$6 == "+") {print}}' ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed > ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}_pstr.peaks.bed
+        awk '{OFS = "\t"} {if (\$6 == "-") {print}}' ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed > ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}_mstr.peaks.bed
+        
         pigz -k ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed
         pigz ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}_[pm]str.peaks.bed
         """
     }
 
-        /*  
+        /*
         * STEP 8b1 - Peak-call (paraclu)
         */
         process generate_counts {
@@ -964,39 +964,38 @@ if ('paraclu' in callers) {
             bedtools intersect -a merged_clusters.bed -b xl.txt -wao -s > ${name}_ov_peaks_ctss.bed;
             bedtools groupby -i ${name}_ov_peaks_ctss.bed -g 1,2,3,6,4 -c 11 -o sum | \\
             awk '{OFS = "\t"; if(\$6=="-1") counts=0; else counts=\$6} {print \$1, \$2, \$3, \$5, counts, \$4}' > ${name}_ctss_counts.bed
-
+            
             awk '{OFS = "\t"} {if (\$6 == "+") {print}}' ${name}_ctss_counts.bed > ${name}_pstr_ctss_counts.bed
             awk '{OFS = "\t"} {if (\$6 == "-") {print}}' ${name}_ctss_counts.bed > ${name}_mstr_ctss_counts.bed
 
             awk '{OFS = "\t"}{if (\$6 == "+") {print \$1, \$2, \$3, \$5} else {print \$1, \$2, \$3, -\$5}}' ${name}_ctss_counts.bed > ${name}_ctss_counts.bedgraph
-
-
+            
             echo ${name} > ${name}_ctss_counts.txt
             cat ${name}_ctss_counts.bed | cut -f 5 >> ${name}_ctss_counts.txt
             """
             }
 
-                                /*
-                                * STEP 11 - Generate count matrix
-                                */
-                                process generate_count_matrix {
-                                    publishDir "${params.outdir}/ctss/", mode: params.publish_dir_mode
+            /*
+            * STEP 8b2 - Generate count matrix
+            */
+            process generate_count_matrix {
+                publishDir "${params.outdir}/ctss/", mode: params.publish_dir_mode
 
-                                    input:
-                                    file counts from ch_count_bed.collect()
-                                    file clusters from ch_counts_clusters.collect()
+                input:
+                file counts from ch_count_bed.collect()
+                file clusters from ch_counts_clusters
 
-                                    output:
-                                    file "*.txt" into count_matrix
+                output:
+                file "*.txt" into ch_count_matrix
 
-                                    script:
-                                    """
-                                    echo 'coordinates' > coordinates
-                                    awk '{print \$4}' $clusters >> coordinates
+                script:
+                """
+                echo 'coordinates' > coordinates
+                awk '{print \$4}' $clusters >> coordinates
 
-                                    paste -d "\t" coordinates $counts >> ctss_count_table.txt
-                                    """
-                                }
+                paste -d "\t" coordinates $counts >> ctss_count_table.txt
+                """
+            }
 
     if (params.motif) {
         process paraclu_motif_dreme {
