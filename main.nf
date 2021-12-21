@@ -943,7 +943,7 @@ if ('paraclu' in callers) {
 
                                     output:
                                     file "*.bed" into ch_counts, count_qc
-                                    file "*_ctss_counts.bed" into ch_count_bed
+                                    file "*_ctss_counts.txt" into ch_count_bed
                                     file "*.bedgraph" into ch_count_bedgraph
 
                                     script:
@@ -956,9 +956,12 @@ if ('paraclu' in callers) {
                                     pigz -d -c $ctss > xl.txt
                                     bedtools intersect -a merged_clusters.bed -b xl.txt -wao -s > ${name}_ov_peaks_ctss.bed;
                                     bedtools groupby -i ${name}_ov_peaks_ctss.bed -g 1,2,3,6,4 -c 11 -o sum | \\
-                                    awk '{OFS = "\t"; if(\$6=="-1") counts=0; else counts=\$6} {print \$1, \$2, \$3, \$5, counts, \$4}' > ${name}_ctss_counts.bed;
+                                    awk '{OFS = "\t"; if(\$6=="-1") counts=0; else counts=\$6} {print \$1, \$2, \$3, \$5, counts, \$4}' > ${name}_ctss_counts.bed
 
                                     cat ${name}_ctss_counts.bed | awk '{OFS = "\t"}{if (\$6 == "+") {print \$1, \$2, \$3, \$5} else {print \$1, \$2, \$3, -\$5}}' > ${name}_ctss_counts.bedgraph
+
+                                    echo ${name} > ${name}_ctss_counts.txt
+                                    cat ${name}_ctss_counts.bed | cut -f 5 >> ${name}_ctss_counts.txt
                                     """
                                     }
 
@@ -977,7 +980,9 @@ if ('paraclu' in callers) {
 
                                     script:
                                     """
-                                    awk '{print \$4}' $clusters > coordinates
+                                    echo 'coordinates' > coordinates
+                                    awk '{print \$4}' $clusters >> coordinates
+
                                     paste -d "\t" coordinates $counts >> ctss_count_table.txt
                                     """
                                 }
