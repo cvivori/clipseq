@@ -818,65 +818,16 @@ process get_crosslinks {
     bedtools genomecov -dz -strand + -5 -i shifted.bed -g $fai | awk '{OFS="\t"}{print \$1, \$2, \$2+1, ".", \$3, "+"}' > pos.bed
     bedtools genomecov -dz -strand - -5 -i shifted.bed -g $fai | awk '{OFS="\t"}{print \$1, \$2, \$2+1, ".", \$3, "-"}' > neg.bed
     cat pos.bed neg.bed | sort -k1,1 -k2,2n | pigz > ${name}.xl.bed.gz
+    cat pos.bed | sort -k1,1 -k2,2n | pigz > ${name}_pos.xl.bed.gz
+    cat neg.bed | sort -k1,1 -k2,2n | pigz > ${name}_neg.xl.bed.gz
+    zcat ${name}.xl.bed.gz > ${name}.xl.bed
     zcat ${name}.xl.bed.gz | awk '{OFS = "\t"}{if (\$6 == "+") {print \$1, \$2, \$3, \$5} else {print \$1, \$2, \$3, -\$5}}' | pigz > ${name}.xl.bedgraph.gz
+    cat pos.bed | awk '{OFS = "\t"}{if (\$6 == "+") {print \$1, \$2, \$3, \$5} else {print \$1, \$2, \$3, -\$5}}' | pigz > ${name}_pos.xl.bedgraph.gz
+    cat neg.bed | awk '{OFS = "\t"}{if (\$6 == "+") {print \$1, \$2, \$3, \$5} else {print \$1, \$2, \$3, -\$5}}' | pigz > ${name}_neg.xl.bedgraph.gz
     """
 }
 
-/*
- * STEP 7b - Calculate counts/tpms
- */
-process get_ctss {
-    tag "$name"
-    label 'process_medium'
-    publishDir "${params.outdir}/ctss", mode: params.publish_dir_mode
 
-    input:
-    tuple val(name), path(bam), path(bai) from ch_dedup_ctss
-    path(fai) from ch_fai_ctss.collect()
-    path(chrom_sizes) from ch_chrom_sizes
-
-    output:
-    path("*_ctss.bed") into (ctss_counts, ctss_counts_qc)
-    path("*_ctss.bedgraph") into (ctss_counts_bedgraph)
-
-    script:
-    """
-    bedtools bamtobed -i $bam > dedup.bed
-    bedtools shift -m 1 -p -1 -i dedup.bed -g $fai > shifted.bed
-    awk 'BEGIN{OFS="\t"}{if(\$6=="+"){print \$1,\$2,\$5}}' shifted.bed  | sort -k1,1 -k2,2n | groupBy -i stdin -g 1,2 -c 3 -o count | awk -v x="${name}" 'BEGIN{OFS="\t"}{print \$1,\$2,\$2+1,  x  ,\$3,"+"}' >> ${name}.pos.ctss.bed
-    awk 'BEGIN{OFS="\t"}{if(\$6=="-"){print \$1,\$3,\$5}}' shifted.bed | sort -k1,1 -k2,2n | groupBy -i stdin -g 1,2 -c 3 -o count | awk -v x="${name}" 'BEGIN{OFS="\t"}{print \$1,\$2-1,\$2, x  ,\$3,"-"}' >> ${name}.neg.ctss.bed
-    cat ${name}.pos_ctss.bed ${name}.neg_ctss.bed | sort -k1,1 -k2,2n > ${name}_ctss.bed
-
-    bedtools genomecov -bg -i ${name}_ctss.bed -g ${chrom_sizes} |  sort -k1,1 -k2,2n - > ${name}_ctss.bedgraph
-    
-    """
-}
-
-/**
-* STEP 7c - Cluster CTSS files
-*/
-ctss_counts = ctss_counts.collect().dump(tag:"ctss_counts")
-process cluster_ctss {
-    label "process_high"
-    publishDir "${params.outdir}/ctss/clusters", mode: params.publish_dir_mode
-
-    input:
-    file ctss from ctss_counts.collect()
-
-    output:
-    file "*.bed" into ctss_clusters
-
-    shell:
-    '''
-    process_ctss.sh -t !{params.tpm_cluster_threshold} !{ctss}
-    paraclu !{params.min_cluster} "ctss_all_pos_4Ps" > "ctss_all_pos_clustered"
-    paraclu !{params.min_cluster} "ctss_all_neg_4Ps" > "ctss_all_neg_clustered"
-    paraclu-cut  "ctss_all_pos_clustered" >  "ctss_all_pos_clustered_simplified"
-    paraclu-cut  "ctss_all_neg_clustered" >  "ctss_all_neg_clustered_simplified"
-    cat "ctss_all_pos_clustered_simplified" "ctss_all_neg_clustered_simplified" >  "ctss_all_clustered_simplified"
-    awk -F '\t' '{print $1"\t"$3"\t"$4"\t"$1":"$3".."$4","$2"\t"$6"\t"$2}' "ctss_all_clustered_simplified" >  "ctss_all_clustered_simplified.bed"
-    '''
-}
 
 
 /*
@@ -959,6 +910,7 @@ if ('paraclu' in callers) {
 
         output:
         tuple val(name), path("${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed.gz") into ch_peaks_paraclu
+        path "*.peaks.bed" into ch_peaks_ctss, ch_counts_clusters
         path "*.peaks.bed.gz" into ch_paraclu_qc
 
         script:
@@ -972,9 +924,10 @@ if ('paraclu' in callers) {
 
         paraclu ${min_value} paraclu_input.tsv | \\
         paraclu-cut -d ${min_density_increase} -l ${max_cluster_length} | \\
-        awk '{OFS = "\t"}{print \$1, \$3-1, \$4, ".", \$6, \$2}' | \\
-        bedtools sort | \\
-        pigz > ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed.gz
+        awk '{OFS = "\t"; coord=\$1 ":" \$3-1 "-" \$4 }  {print \$1, \$3-1, \$4, coord, \$6, \$2}' | \\
+        bedtools sort > ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed
+
+        pigz -k ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed
         """
     }
 
