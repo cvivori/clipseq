@@ -942,7 +942,8 @@ if ('paraclu' in callers) {
                                     file (clusters) from ch_peaks_ctss.collect()
 
                                     output:
-                                    file "*.bed" into ch_count_bed, count_qc
+                                    file "*.bed" into ch_counts, count_qc
+                                    file "*_ctss_counts.bed" into ch_count_bed
                                     file "*.bedgraph" into ch_count_bedgraph
 
                                     script:
