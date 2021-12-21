@@ -807,9 +807,11 @@ process get_crosslinks {
     path(fai) from ch_fai_crosslinks.collect()
 
     output:
-    tuple val(name), path("${name}.xl.bed.gz") into ch_xlinks_icount, ch_xlinks_paraclu, ch_xlinks_piranha
+    tuple val(name), path("${name}.xl.bed.gz") into ch_xlinks_icount, ch_xlinks_paraclu, ch_xlinks_piranha, ch_xlinks_counts
     tuple val(name), path("${name}.xl.bedgraph.gz") into ch_xlinks_bedgraphs
-    path "*.xl.bed.gz" into ch_xlinks_qc
+    tuple val(name), path("${name}_pos.xl.bed*.gz") into ch_xlinks_pos
+    tuple val(name), path("${name}_neg.xl.bed*.gz") into ch_xlinks_neg
+    path("*.xl.bed.gz") into ch_xlinks_qc
 
     script:
     """
