@@ -352,20 +352,6 @@ if (params.fasta) {
         }
     }
 
-    process get_chrom_sizes {
-        label 'process_low'
-        
-        input:
-        file fasta from ch_fasta_chrom
-        
-        output:
-        file "*.txt" into ch_chrom_sizes
-
-        shell:
-        '''
-        cat !{fasta} |  awk '$0 ~ ">" {if (NR > 1) {print c;} c=0;printf substr($0,2,100) "\t"; } $0 !~ ">" {c+=length($0);} END { print c; }' > chrom_sizes.txt
-        '''
-    }
 }
 
 /*
