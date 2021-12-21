@@ -1155,47 +1155,50 @@ if ('piranha' in callers) {
 /*
  * STEP 8 - QC plots
  */
-process clipqc {
-    label 'process_low'
-    publishDir "${params.outdir}/clipqc", mode: params.publish_dir_mode
+if (!params.skip_clipqc) {
+    process clipqc {
+        label 'process_low'
+        publishDir "${params.outdir}/clipqc", mode: params.publish_dir_mode
 
-    input:
-    file ('premap/*') from ch_premap_qc.collect().ifEmpty([])
-    file ('mapped/*') from ch_align_qc.collect().ifEmpty([])
-    file ('dedup/*') from ch_dedup_qc.collect().ifEmpty([]) 
-    file ('xlinks/*') from ch_xlinks_qc.collect().ifEmpty([])
-    path ('icount/*') from ch_icount_qc.collect().ifEmpty([])
-    file ('paraclu/*') from ch_paraclu_qc.collect().ifEmpty([])
-    file ('pureclip/*') from ch_pureclip_qc.collect().ifEmpty([])
-    file ('piranha/*') from ch_piranha_qc.collect().ifEmpty([])
+        input:
+        file ('premap/*') from ch_premap_qc.collect().ifEmpty([])
+        file ('mapped/*') from ch_align_qc.collect().ifEmpty([])
+        file ('dedup/*') from ch_dedup_qc.collect().ifEmpty([])
+        file ('xlinks/*') from ch_xlinks_qc.collect().ifEmpty([])
+        path ('icount/*') from ch_icount_qc.collect().ifEmpty([])
+        file ('paraclu/*') from ch_paraclu_qc.collect().ifEmpty([])
+        file ('pureclip/*') from ch_pureclip_qc.collect().ifEmpty([])
+        file ('piranha/*') from ch_piranha_qc.collect().ifEmpty([])
 
-    output:
-    path "*.tsv" into ch_clipqc_mqc
+        output:
+        path "*.tsv" into ch_clipqc_mqc
 
-    script:
-    clip_qc_args = ''
+        script:
+        clip_qc_args = ''
 
-    if ('icount' in callers && icount_check) {
-        clip_qc_args += ' icount '
+        if ('icount' in callers && icount_check) {
+            clip_qc_args += ' icount '
+        }
+
+        if ('paraclu' in callers) {
+            clip_qc_args += ' paraclu '
+        }
+
+        if ('pureclip' in callers) {
+            clip_qc_args += ' pureclip '
+        }
+
+        if ('piranha' in callers) {
+            clip_qc_args += ' piranha '
+        }
+
+        """
+        clip_qc.py $clip_qc_args
+        """
     }
-
-    if ('paraclu' in callers) {
-        clip_qc_args += ' paraclu '
-    }
-
-    if ('pureclip' in callers) {
-        clip_qc_args += ' pureclip '
-    }
-
-    if ('piranha' in callers) {
-        clip_qc_args += ' piranha '
-    }
-
-    """
-    clip_qc.py $clip_qc_args
-    """
+} else {
+    ch_clipqc_mqc = Channel.empty()
 }
-
 /*
  * STEP 9 - MultiQC
  */
