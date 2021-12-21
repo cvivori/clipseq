@@ -933,6 +933,54 @@ if ('paraclu' in callers) {
         """
     }
 
+                                process generate_counts {
+                                    tag "$name"
+                                    publishDir "${params.outdir}/ctss", mode: params.publish_dir_mode
+
+                                    input:
+                                    tuple val(name), path(ctss) from ch_xlinks_counts
+                                    file (clusters) from ch_peaks_ctss.collect()
+
+                                    output:
+                                    file "*.bed" into ch_count_bed, count_qc
+                                    file "*.bedgraph" into ch_count_bedgraph
+
+                                    script:
+                                    """
+                                    cat $clusters | bedtools sort -i - > all_clusters.txt
+                                    bedtools merge -s -c 5,6 -o sum,distinct -i all_clusters.txt | \\
+                                    awk '{OFS = "\t"; coord=\$1 ":" \$2 "-" \$3 }  {print \$1, \$2, \$3, coord, \$4, \$5}' > merged_clusters.bed
+
+
+                                    pigz -d -c $ctss > xl.txt
+                                    bedtools intersect -a merged_clusters.bed -b xl.txt -wao -s > ${name}_ov_peaks_ctss.bed;
+                                    bedtools groupby -i ${name}_ov_peaks_ctss.bed -g 1,2,3,6,4 -c 11 -o sum | \\
+                                    awk '{OFS = "\t"; if(\$6=="-1") counts=0; else counts=\$6} {print \$1, \$2, \$3, \$5, counts, \$4}' > ${name}_ctss_counts.bed;
+
+                                    cat ${name}_ctss_counts.bed | awk '{OFS = "\t"}{if (\$6 == "+") {print \$1, \$2, \$3, \$5} else {print \$1, \$2, \$3, -\$5}}' > ${name}_ctss_counts.bedgraph
+                                    """
+                                    }
+
+                                /*
+                                * STEP 11 - Generate count matrix
+                                */
+                                process generate_count_matrix {
+                                    publishDir "${params.outdir}/ctss/", mode: params.publish_dir_mode
+
+                                    input:
+                                    file counts from ch_count_bed.collect()
+                                    file clusters from ch_counts_clusters.collect()
+
+                                    output:
+                                    file "*.txt" into count_matrix
+
+                                    script:
+                                    """
+                                    awk '{print \$4}' $clusters > coordinates
+                                    paste -d "\t" coordinates $counts >> ctss_count_table.txt
+                                    """
+                                }
+
     if (params.motif) {
         process paraclu_motif_dreme {
             tag "$name"
@@ -964,6 +1012,7 @@ if ('paraclu' in callers) {
         }
     }
 }
+
 
 /*
  * STEP 8c - Peak-call (PureCLIP)
