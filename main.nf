@@ -911,7 +911,7 @@ if ('paraclu' in callers) {
 
         output:
         tuple val(name), path("${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed.gz") into ch_peaks_paraclu
-        path "*.peaks.bed" into ch_peaks_ctss, ch_counts_clusters
+        path "${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed" into ch_peaks_ctss
         path "*.peaks.bed.gz" into ch_paraclu_qc
 
         script:
@@ -928,41 +928,53 @@ if ('paraclu' in callers) {
         awk '{OFS = "\t"; coord=\$1 ":" \$3-1 "-" \$4 }  {print \$1, \$3-1, \$4, coord, \$6, \$2}' | \\
         bedtools sort > ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed
 
+        awk '{OFS = "\t"} {if (\$6 == "+") {print}}' ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed > ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}_pstr.peaks.bed     
+        awk '{OFS = "\t"} {if (\$6 == "-") {print}}' ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed > ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}_mstr.peaks.bed     
+
         pigz -k ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed
+        pigz ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}_[pm]str.peaks.bed
         """
     }
 
-                                process generate_counts {
-                                    tag "$name"
-                                    publishDir "${params.outdir}/ctss", mode: params.publish_dir_mode
+        /*  
+        * STEP 8b1 - Peak-call (paraclu)
+        */
+        process generate_counts {
+            tag "$name"
+            publishDir "${params.outdir}/ctss", mode: params.publish_dir_mode
 
-                                    input:
-                                    tuple val(name), path(ctss) from ch_xlinks_counts
-                                    file (clusters) from ch_peaks_ctss.collect()
+            input:
+            tuple val(name), path(ctss) from ch_xlinks_counts
+            file (clusters) from ch_peaks_ctss.collect()
 
-                                    output:
-                                    file "*.bed" into ch_counts, count_qc
-                                    file "*_ctss_counts.txt" into ch_count_bed
-                                    file "*.bedgraph" into ch_count_bedgraph
+            output:
+            file "*_ctss_counts.bed" into ch_counts, count_qc
+            file "*_ctss_counts.txt" into ch_count_bed
+            file "*.bedgraph" into ch_count_bedgraph
+            file "merged_clusters.bed" into ch_counts_clusters
 
-                                    script:
-                                    """
-                                    cat $clusters | bedtools sort -i - > all_clusters.txt
-                                    bedtools merge -s -c 5,6 -o sum,distinct -i all_clusters.txt | \\
-                                    awk '{OFS = "\t"; coord=\$1 ":" \$2 "-" \$3 }  {print \$1, \$2, \$3, coord, \$4, \$5}' > merged_clusters.bed
+            script:
+            """
+            cat $clusters | bedtools sort -i - > all_clusters.txt
+            bedtools merge -s -c 5,6 -o sum,distinct -i all_clusters.txt | \\
+            awk '{OFS = "\t"; coord=\$1 ":" \$2 "-" \$3 }  {print \$1, \$2, \$3, coord, \$4, \$5}' > merged_clusters.bed
 
 
-                                    pigz -d -c $ctss > xl.txt
-                                    bedtools intersect -a merged_clusters.bed -b xl.txt -wao -s > ${name}_ov_peaks_ctss.bed;
-                                    bedtools groupby -i ${name}_ov_peaks_ctss.bed -g 1,2,3,6,4 -c 11 -o sum | \\
-                                    awk '{OFS = "\t"; if(\$6=="-1") counts=0; else counts=\$6} {print \$1, \$2, \$3, \$5, counts, \$4}' > ${name}_ctss_counts.bed
+            pigz -d -c $ctss > xl.txt
+            bedtools intersect -a merged_clusters.bed -b xl.txt -wao -s > ${name}_ov_peaks_ctss.bed;
+            bedtools groupby -i ${name}_ov_peaks_ctss.bed -g 1,2,3,6,4 -c 11 -o sum | \\
+            awk '{OFS = "\t"; if(\$6=="-1") counts=0; else counts=\$6} {print \$1, \$2, \$3, \$5, counts, \$4}' > ${name}_ctss_counts.bed
 
-                                    cat ${name}_ctss_counts.bed | awk '{OFS = "\t"}{if (\$6 == "+") {print \$1, \$2, \$3, \$5} else {print \$1, \$2, \$3, -\$5}}' > ${name}_ctss_counts.bedgraph
+            awk '{OFS = "\t"} {if (\$6 == "+") {print}}' ${name}_ctss_counts.bed > ${name}_pstr_ctss_counts.bed
+            awk '{OFS = "\t"} {if (\$6 == "-") {print}}' ${name}_ctss_counts.bed > ${name}_mstr_ctss_counts.bed
 
-                                    echo ${name} > ${name}_ctss_counts.txt
-                                    cat ${name}_ctss_counts.bed | cut -f 5 >> ${name}_ctss_counts.txt
-                                    """
-                                    }
+            awk '{OFS = "\t"}{if (\$6 == "+") {print \$1, \$2, \$3, \$5} else {print \$1, \$2, \$3, -\$5}}' ${name}_ctss_counts.bed > ${name}_ctss_counts.bedgraph
+
+
+            echo ${name} > ${name}_ctss_counts.txt
+            cat ${name}_ctss_counts.bed | cut -f 5 >> ${name}_ctss_counts.txt
+            """
+            }
 
                                 /*
                                 * STEP 11 - Generate count matrix
