@@ -807,9 +807,9 @@ process get_crosslinks {
     path(fai) from ch_fai_crosslinks.collect()
 
     output:
-    tuple val(name), path("${name}.xl.bed.gz") into ch_xlinks_icount, ch_xlinks_paraclu, ch_xlinks_piranha, ch_xlinks_counts
+    tuple val(name), path("${name}.xl.bed.gz") into ch_xlinks_icount, ch_xlinks_paraclu, ch_xlinks_piranha, ch_xlinks_counts, ch_xlinks_tss
     tuple val(name), path("${name}.xl.bedgraph.gz") into ch_xlinks_bedgraphs
-    tuple val(name), path("${name}_[pm]str.xl.bed*.gz") into ch_xlinks_str  //strand-specific xlinks bed and bedgraph files
+    // tuple val(name), path("${name}_[pm]str.xl.bed*.gz") into ch_xlinks_str  //strand-specific xlinks bed and bedgraph files
     path("*.xl.bed.gz") into ch_xlinks_qc
 
     script:
@@ -819,12 +819,12 @@ process get_crosslinks {
     bedtools genomecov -dz -strand + -5 -i shifted.bed -g $fai | awk '{OFS="\t"}{print \$1, \$2, \$2+1, ".", \$3, "+"}' > pstr.bed
     bedtools genomecov -dz -strand - -5 -i shifted.bed -g $fai | awk '{OFS="\t"}{print \$1, \$2, \$2+1, ".", \$3, "-"}' > mstr.bed
     cat pstr.bed mstr.bed | sort -k1,1 -k2,2n | pigz > ${name}.xl.bed.gz
-    cat pstr.bed | sort -k1,1 -k2,2n | pigz > ${name}_pstr.xl.bed.gz
-    cat mstr.bed | sort -k1,1 -k2,2n | pigz > ${name}_mstr.xl.bed.gz
+    ## cat pstr.bed | sort -k1,1 -k2,2n | pigz > ${name}_pstr.xl.bed.gz
+    ## cat mstr.bed | sort -k1,1 -k2,2n | pigz > ${name}_mstr.xl.bed.gz
     zcat ${name}.xl.bed.gz > ${name}.xl.bed
     zcat ${name}.xl.bed.gz | awk '{OFS = "\t"}{if (\$6 == "+") {print \$1, \$2, \$3, \$5} else {print \$1, \$2, \$3, -\$5}}' | pigz > ${name}.xl.bedgraph.gz
-    cat pstr.bed | awk '{OFS = "\t"}{if (\$6 == "+") {print \$1, \$2, \$3, \$5} else {print \$1, \$2, \$3, -\$5}}' | pigz > ${name}_pstr.xl.bedgraph.gz
-    cat mstr.bed | awk '{OFS = "\t"}{if (\$6 == "+") {print \$1, \$2, \$3, \$5} else {print \$1, \$2, \$3, -\$5}}' | pigz > ${name}_mstr.xl.bedgraph.gz
+    ## cat pstr.bed | awk '{OFS = "\t"}{if (\$6 == "+") {print \$1, \$2, \$3, \$5} else {print \$1, \$2, \$3, -\$5}}' | pigz > ${name}_pstr.xl.bedgraph.gz
+    ## cat mstr.bed | awk '{OFS = "\t"}{if (\$6 == "+") {print \$1, \$2, \$3, \$5} else {print \$1, \$2, \$3, -\$5}}' | pigz > ${name}_mstr.xl.bedgraph.gz
     """
 }
 
@@ -965,8 +965,8 @@ if ('paraclu' in callers) {
             bedtools groupby -i ${name}_ov_peaks_ctss.bed -g 1,2,3,6,4 -c 11 -o sum | \\
             awk '{OFS = "\t"; if(\$6=="-1") counts=0; else counts=\$6} {print \$1, \$2, \$3, \$5, counts, \$4}' > ${name}_ctss_counts.bed
             
-            awk '{OFS = "\t"} {if (\$6 == "+") {print}}' ${name}_ctss_counts.bed > ${name}_pstr_ctss_counts.bed
-            awk '{OFS = "\t"} {if (\$6 == "-") {print}}' ${name}_ctss_counts.bed > ${name}_mstr_ctss_counts.bed
+            ## awk '{OFS = "\t"} {if (\$6 == "+") {print}}' ${name}_ctss_counts.bed > ${name}_pstr_ctss_counts.bed
+            ## awk '{OFS = "\t"} {if (\$6 == "-") {print}}' ${name}_ctss_counts.bed > ${name}_mstr_ctss_counts.bed
 
             awk '{OFS = "\t"}{if (\$6 == "+") {print \$1, \$2, \$3, \$5} else {print \$1, \$2, \$3, -\$5}}' ${name}_ctss_counts.bed > ${name}_ctss_counts.bedgraph
             
@@ -996,6 +996,55 @@ if ('paraclu' in callers) {
                 paste -d "\t" coordinates $counts >> ctss_count_table.txt
                 """
             }
+
+
+
+            /*
+            * STEP 8b3 - Overlap with annotated TSS
+            */
+            process count_tags_tss {
+                publishDir "${params.outdir}/tags_tss/", mode: params.publish_dir_mode
+
+                input:
+                tuple val(name), path(tags) from ch_xlinks_tss
+
+                output:
+                file "*.txt" into ch_tags_tss
+
+                script:
+                """
+                echo -e 'Sample\tNum_Tags_Tot\tNum_Tags_TSS2\tNum_TSS_withTags\tNum_TSS_noTags' > NumTags_${name}.txt;
+                
+	            echo -n ${name}\$'\t'  >> NumTags_${name}.txt;         ## Sample name
+	
+		        tmppath=\$(mktemp -q) # Create a temp file for storage
+		        zcat $tags | wc -l > \${tmppath} # run the command and get the output to the temp file
+		        lines=\$(cat "\${tmppath}") # read the file into variable
+	            echo -n \$lines\$'\t' >> NumTags_${name}.txt;         ## Number of total tags
+
+        		out="${name}_xl_TSS.bed.gz";       ## generate overlap btw tags and TSS+-2 
+		        zcat $tags | bedtools intersect -s -a - -b ~/vivoric_home/TSSseq_tests/References_TSSseq_datasets/iyer_tss.allgenes_slop_b2.bed | pigz > \$out;
+			    tmppath=\$(mktemp -q) # Create a temp file for storage
+			    zcat \$out | wc -l > \${tmppath} # run the command and get the output to the temp file
+			    lines=\$(cat "\${tmppath}") # read the file into variable
+	            echo -n \$lines\$'\t' >> NumTags_${name}.txt;       	## Number of tags overlapping with TSS +-2
+	
+	    		out2="TSS_${name}_xl.bed.gz";          ## subsetting which TSS overlap with any tags (+-2)
+		        zcat $tags | bedtools intersect -s -u -a ~/vivoric_home/TSSseq_tests/References_TSSseq_datasets/iyer_tss.allgenes_slop_b2.bed -b - | pigz  > \$out2;
+			    tmppath=\$(mktemp) # Create a temp file for storage
+			    zcat \$out2 | wc -l > \${tmppath} # run the command and get the output to the temp file
+			    lines=\$(cat "\${tmppath}") # read the file into variable
+	            echo -n \$lines\$'\t' >> NumTags_${name}.txt;         ## Number of TSS with any tag
+		
+			    tmppath=\$(mktemp) # Create a temp file for storage ## calculating difference
+			    cat ~/vivoric_home/TSSseq_tests/References_TSSseq_datasets/iyer_tss.allgenes_slop_b2.bed | wc -l > \${tmppath} # run the command and get the output to the temp file
+			    tot=\$(cat "\${tmppath}") # read the file into variable
+	            expr \$tot - \$lines >> NumTags_${name}.txt;
+                """
+            }
+
+
+
 
     if (params.motif) {
         process paraclu_motif_dreme {
