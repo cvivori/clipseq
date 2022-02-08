@@ -144,7 +144,8 @@ params.umi_separator = params.move_umi ? '_' : ':' // Define default as ':' unle
 
 if (params.smrna_fasta) ch_smrna_fasta = Channel.value(params.smrna_fasta)
 if (params.star_index) ch_star_index = Channel.value(params.star_index)
-if (params.gtf) ch_check_gtf = Channel.value(params.gtf)
+if (params.gtf) ch_check_gtf = Channel.value(params.gtf) 
+if (params.tss) ch_tss_annot = Channel.value(params.tss) 
 
 // fai channels
 if (params.fai) ch_fai_crosslinks = Channel.value(params.fai)
@@ -185,6 +186,7 @@ summary['Run Name']                              = workflow.runName
 summary['Input']                                 = params.input
 if (params.fasta)                                summary['Fasta ref'] = params.fasta
 if (params.gtf)                                  summary['GTF ref'] = params.gtf
+if (params.tss)                                  summary['TSS ref'] = params.tss
 if (params.star_index)                           summary['STAR index'] = params.star_index
 if (params.save_index)                           summary['Save STAR index?'] = params.save_index
 if (params.smrna_org)                            summary['SmallRNA organism ref'] = params.smrna_org
@@ -1002,6 +1004,7 @@ if ('paraclu' in callers) {
             /*
             * STEP 8b3 - Overlap with annotated TSS
             */
+            if (params.tss) {
             process count_tags_tss {
                 publishDir "${params.outdir}/tags_tss/", mode: params.publish_dir_mode
 
@@ -1012,8 +1015,9 @@ if ('paraclu' in callers) {
                 file "*.txt" into ch_tags_tss
 
                 script:
+                tss = params.tss
                 """
-                echo -e 'Sample\tNum_Tags_Tot\tNum_Tags_TSS2\tNum_TSS_withTags\tNum_TSS_noTags' > NumTags_${name}.txt;
+                echo -e 'Sample\tNum_Tags_Tot\tNum_Tags_TSS\tNum_TSS_withTags\tNum_TSS_noTags' > NumTags_${name}.txt;
                 
 	            echo -n ${name}\$'\t'  >> NumTags_${name}.txt;         ## Sample name
 	
@@ -1023,25 +1027,26 @@ if ('paraclu' in callers) {
 	            echo -n \$lines\$'\t' >> NumTags_${name}.txt;         ## Number of total tags
 
         		out="${name}_xl_TSS.bed.gz";       ## generate overlap btw tags and TSS+-2 
-		        zcat $tags | bedtools intersect -s -a - -b ~/vivoric_home/TSSseq_tests/References_TSSseq_datasets/iyer_tss.allgenes_slop_b2.bed | pigz > \$out;
+		        zcat $tags | bedtools intersect -s -a - -b ${tss} | pigz > \$out;
 			    tmppath=\$(mktemp -q) # Create a temp file for storage
 			    zcat \$out | wc -l > \${tmppath} # run the command and get the output to the temp file
 			    lines=\$(cat "\${tmppath}") # read the file into variable
 	            echo -n \$lines\$'\t' >> NumTags_${name}.txt;       	## Number of tags overlapping with TSS +-2
 	
 	    		out2="TSS_${name}_xl.bed.gz";          ## subsetting which TSS overlap with any tags (+-2)
-		        zcat $tags | bedtools intersect -s -u -a ~/vivoric_home/TSSseq_tests/References_TSSseq_datasets/iyer_tss.allgenes_slop_b2.bed -b - | pigz  > \$out2;
+		        zcat $tags | bedtools intersect -s -u -a ${tss} -b - | pigz  > \$out2;
 			    tmppath=\$(mktemp) # Create a temp file for storage
 			    zcat \$out2 | wc -l > \${tmppath} # run the command and get the output to the temp file
 			    lines=\$(cat "\${tmppath}") # read the file into variable
 	            echo -n \$lines\$'\t' >> NumTags_${name}.txt;         ## Number of TSS with any tag
 		
 			    tmppath=\$(mktemp) # Create a temp file for storage ## calculating difference
-			    cat ~/vivoric_home/TSSseq_tests/References_TSSseq_datasets/iyer_tss.allgenes_slop_b2.bed | wc -l > \${tmppath} # run the command and get the output to the temp file
+			    cat ${tss} | wc -l > \${tmppath} # run the command and get the output to the temp file
 			    tot=\$(cat "\${tmppath}") # read the file into variable
 	            expr \$tot - \$lines >> NumTags_${name}.txt;
                 """
             }
+        }
 
 
 
