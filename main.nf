@@ -930,11 +930,11 @@ if ('paraclu' in callers) {
         awk '{OFS = "\t"; coord=\$1 ":" \$3-1 "-" \$4 }  {print \$1, \$3-1, \$4, coord, \$6, \$2}' | \\
         bedtools sort > ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed
 
-        awk '{OFS = "\t"} {if (\$6 == "+") {print}}' ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed > ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}_pstr.peaks.bed
-        awk '{OFS = "\t"} {if (\$6 == "-") {print}}' ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed > ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}_mstr.peaks.bed
+        # awk '{OFS = "\t"} {if (\$6 == "+") {print}}' ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed > ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}_pstr.peaks.bed
+        # awk '{OFS = "\t"} {if (\$6 == "-") {print}}' ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed > ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}_mstr.peaks.bed
         
         pigz -k ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}.peaks.bed
-        pigz ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}_[pm]str.peaks.bed
+        # pigz ${name}.${min_value}_${max_cluster_length}nt_${min_density_increase}_[pm]str.peaks.bed
         """
     }
 
