@@ -681,6 +681,7 @@ process align {
                 --alignIntronMin 20 \
                 --alignIntronMax 1000000 \
                 --outFilterScoreMin 10  \
+                --outFilterScoreMinOverLread 0  --outFilterMatchNminOverLread 0 \
                 --alignEndsType Extend5pOfRead1 \
                 --twopassMode Basic \
                 --outSAMtype BAM Unsorted"
@@ -813,7 +814,6 @@ process get_crosslinks {
     tuple val(name), path("${name}.xl.bedgraph.gz") into ch_xlinks_bedgraphs
     // tuple val(name), path("${name}_[pm]str.xl.bed*.gz") into ch_xlinks_str  //strand-specific xlinks bed and bedgraph files
     path("*.xl.bed.gz") into ch_xlinks_qc
-    path("${name}.ns.bedgraph.gz") into ch_bedgraphs_forbigwig
 
     script:
     """
@@ -821,7 +821,6 @@ process get_crosslinks {
     bedtools shift -m 1 -p -1 -i dedup.bed -g $fai > shifted.bed
     bedtools genomecov -dz -strand + -5 -i shifted.bed -g $fai | awk '{OFS="\t"}{print \$1, \$2, \$2+1, ".", \$3, "+"}' > pstr.bed
     bedtools genomecov -dz -strand - -5 -i shifted.bed -g $fai | awk '{OFS="\t"}{print \$1, \$2, \$2+1, ".", \$3, "-"}' > mstr.bed
-    bedtools genomecov -bg -5 -i shifted.bed -g $fai | pigz > ${name}.ns.bedgraph.gz
     cat pstr.bed mstr.bed | sort -k1,1 -k2,2n | pigz > ${name}.xl.bed.gz
     ## cat pstr.bed | sort -k1,1 -k2,2n | pigz > ${name}_pstr.xl.bed.gz
     ## cat mstr.bed | sort -k1,1 -k2,2n | pigz > ${name}_mstr.xl.bed.gz
