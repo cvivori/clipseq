@@ -813,6 +813,7 @@ process get_crosslinks {
     tuple val(name), path("${name}.xl.bedgraph.gz") into ch_xlinks_bedgraphs
     // tuple val(name), path("${name}_[pm]str.xl.bed*.gz") into ch_xlinks_str  //strand-specific xlinks bed and bedgraph files
     path("*.xl.bed.gz") into ch_xlinks_qc
+    path("${name}.ns.bedgraph.gz") into ch_bedgraphs_forbigwig
 
     script:
     """
@@ -820,6 +821,7 @@ process get_crosslinks {
     bedtools shift -m 1 -p -1 -i dedup.bed -g $fai > shifted.bed
     bedtools genomecov -dz -strand + -5 -i shifted.bed -g $fai | awk '{OFS="\t"}{print \$1, \$2, \$2+1, ".", \$3, "+"}' > pstr.bed
     bedtools genomecov -dz -strand - -5 -i shifted.bed -g $fai | awk '{OFS="\t"}{print \$1, \$2, \$2+1, ".", \$3, "-"}' > mstr.bed
+    bedtools genomecov -bg -5 -i shifted.bed -g $fai | pigz > ${name}.ns.bedgraph.gz
     cat pstr.bed mstr.bed | sort -k1,1 -k2,2n | pigz > ${name}.xl.bed.gz
     ## cat pstr.bed | sort -k1,1 -k2,2n | pigz > ${name}_pstr.xl.bed.gz
     ## cat mstr.bed | sort -k1,1 -k2,2n | pigz > ${name}_mstr.xl.bed.gz
@@ -1021,29 +1023,29 @@ if ('paraclu' in callers) {
                 
 	            echo -n ${name}\$'\t'  >> NumTags_${name}.txt;         ## Sample name
 	
-		        tmppath=\$(mktemp -q) # Create a temp file for storage
-		        zcat $tags | wc -l > \${tmppath} # run the command and get the output to the temp file
-		        lines=\$(cat "\${tmppath}") # read the file into variable
+		        tmppath=\$(mktemp -q) 
+		        zcat $tags | wc -l > \${tmppath} 
+		        lines=\$(cat "\${tmppath}") 
 	            echo -n \$lines\$'\t' >> NumTags_${name}.txt;         ## Number of total tags
 
         		out="${name}_xl_TSS.bed.gz";       ## generate overlap btw tags and TSS+-2 
 		        zcat $tags | bedtools intersect -s -a - -b ${tss} | pigz > \$out;
-			    tmppath=\$(mktemp -q) # Create a temp file for storage
-			    zcat \$out | wc -l > \${tmppath} # run the command and get the output to the temp file
-			    lines=\$(cat "\${tmppath}") # read the file into variable
+			    tmppath=\$(mktemp -q) 
+			    zcat \$out | wc -l > \${tmppath} 
+			    lines=\$(cat "\${tmppath}") 
 	            echo -n \$lines\$'\t' >> NumTags_${name}.txt;       	## Number of tags overlapping with TSS +-2
 	
 	    		out2="TSS_${name}_xl.bed.gz";          ## subsetting which TSS overlap with any tags (+-2)
 		        zcat $tags | bedtools intersect -s -u -a ${tss} -b - | pigz  > \$out2;
-			    tmppath=\$(mktemp) # Create a temp file for storage
-			    zcat \$out2 | wc -l > \${tmppath} # run the command and get the output to the temp file
-			    lines=\$(cat "\${tmppath}") # read the file into variable
+			    tmppath=\$(mktemp) 
+			    zcat \$out2 | wc -l > \${tmppath} 
+			    lines=\$(cat "\${tmppath}") 
 	            echo -n \$lines\$'\t' >> NumTags_${name}.txt;         ## Number of TSS with any tag
 		
-			    tmppath=\$(mktemp) # Create a temp file for storage ## calculating difference
-			    cat ${tss} | wc -l > \${tmppath} # run the command and get the output to the temp file
-			    tot=\$(cat "\${tmppath}") # read the file into variable
-	            expr \$tot - \$lines >> NumTags_${name}.txt;
+			    tmppath=\$(mktemp)  ## calculating difference
+			    cat ${tss} | wc -l > \${tmppath} 
+			    tot=\$(cat "\${tmppath}") 
+	            expr \$tot - \$lines >> NumTags_${name}.txt;         ## Number of TSS with no tags
                 """
             }
         }
