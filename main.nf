@@ -620,6 +620,8 @@ process cutadapt {
     cutadapt -j ${task.cpus} -a ${params.adapter} --action=lowercase -m 20 -o ${name}.trimmed.fastq.gz ${name}.fastq.gz > ${name}_cutadapt.log
     """
     }
+    
+    ch_untrimmed = Channel.empty()
 
 }
 
