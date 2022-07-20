@@ -611,7 +611,7 @@ process cutadapt {
 
     output:
     tuple val(name), path("${name}.trimmed.fastq.gz") into ch_trimmed
-    tuple val(name), path("${name}.untrimmed.fastq.gz") into ch_untrimmed
+    // tuple val(name), path("${name}.untrimmed.fastq.gz") into ch_untrimmed
     path "*.log" into ch_cutadapt_mqc
 
     script:
