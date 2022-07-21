@@ -956,7 +956,7 @@ if ('paraclu' in callers) {
             output:
             file "*_ctss_counts.bed" into ch_counts, count_qc
             file "*_ctss_counts.txt" into ch_count_bed
-            file "*.bedgraph" into ch_count_bedgraph
+            file "*.bedgraph.gz" into ch_count_bedgraph
             file "merged_clusters.bed" into ch_counts_clusters
 
             script:
@@ -974,7 +974,7 @@ if ('paraclu' in callers) {
             ## awk '{OFS = "\t"} {if (\$6 == "+") {print}}' ${name}_ctss_counts.bed > ${name}_pstr_ctss_counts.bed
             ## awk '{OFS = "\t"} {if (\$6 == "-") {print}}' ${name}_ctss_counts.bed > ${name}_mstr_ctss_counts.bed
 
-            awk '{OFS = "\t"}{if (\$6 == "+") {print \$1, \$2, \$3, \$5} else {print \$1, \$2, \$3, -\$5}}' ${name}_ctss_counts.bed > ${name}_ctss_counts.bedgraph
+            awk '{OFS = "\t"}{if (\$6 == "+") {print \$1, \$2, \$3, \$5} else {print \$1, \$2, \$3, -\$5}}' ${name}_ctss_counts.bed | pigz > ${name}_ctss_counts.bedgraph.gz
             
             echo ${name} > ${name}_ctss_counts.txt
             cat ${name}_ctss_counts.bed | cut -f 5 >> ${name}_ctss_counts.txt
