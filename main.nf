@@ -816,6 +816,7 @@ process get_crosslinks {
     // tuple val(name), path("${name}_[pm]str.xl.bed*.gz") into ch_xlinks_str  //strand-specific xlinks bed and bedgraph files
     path("*.xl.bed.gz") into ch_xlinks_qc
     // path("${name}.ns.bedgraph.gz") into ch_bedgraphs_forbigwig
+    path("${name}.xl_tpm.bedgraph.gz") into ch_bedgraphs_tpm
 
     script:
     """
@@ -840,6 +841,8 @@ process get_crosslinks {
 	ScaleFactor=`awk '{total = total + \$4}END{print 1/(total/1000000)}' "${name}.ns.bedgraph"`;
     bedtools genomecov -dz -strand + -5 -i shifted.bed -g $fai -scale $ScaleFactor | awk '{OFS="\t"}{print \$1, \$2, \$2+1, ".", \$3, "+"}' > pstr_tpm.bed;
 	bedtools genomecov -dz -strand - -5 -i shifted.bed -g $fai -scale $ScaleFactor | awk '{OFS="\t"}{print \$1, \$2, \$2+1, ".", \$3, "-"}' > mstr_tpm.bed;
+	cat pstr_tpm.bed mstr_tpm.bed | sort -k1,1 -k2,2n | pigz > "${name}.xl_tpm.bed.gz";
+	zcat ${name}.xl_tpm.bed.gz | awk '{OFS = "\t"}{if (\$6 == "+") {print \$1, \$2, \$3, \$5} else {print \$1, \$2, \$3, -\$5}}' | pigz > "${name}.xl_tpm.bedgraph.gz";
     """
 }
 
