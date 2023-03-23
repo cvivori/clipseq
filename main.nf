@@ -815,7 +815,7 @@ process get_crosslinks {
     tuple val(name), path("${name}.xl.bedgraph.gz") into ch_xlinks_bedgraphs
     // tuple val(name), path("${name}_[pm]str.xl.bed*.gz") into ch_xlinks_str  //strand-specific xlinks bed and bedgraph files
     path("*.xl.bed.gz") into ch_xlinks_qc
-    path("${name}.ns.bedgraph.gz") into ch_bedgraphs_forbigwig
+    // path("${name}.ns.bedgraph.gz") into ch_bedgraphs_forbigwig
 
     script:
     """
@@ -823,7 +823,7 @@ process get_crosslinks {
     bedtools shift -m 1 -p -1 -i dedup.bed -g $fai > shifted.bed
     bedtools genomecov -dz -strand + -5 -i shifted.bed -g $fai | awk '{OFS="\t"}{print \$1, \$2, \$2+1, ".", \$3, "+"}' > pstr.bed
     bedtools genomecov -dz -strand - -5 -i shifted.bed -g $fai | awk '{OFS="\t"}{print \$1, \$2, \$2+1, ".", \$3, "-"}' > mstr.bed
-    bedtools genomecov -bg -5 -i shifted.bed -g $fai | pigz > ${name}.ns.bedgraph.gz
+    bedtools genomecov -bg -5 -i shifted.bed -g $fai  > ${name}.ns.bedgraph
     cat pstr.bed mstr.bed | sort -k1,1 -k2,2n | pigz > ${name}.xl.bed.gz
     ## cat pstr.bed | sort -k1,1 -k2,2n | pigz > ${name}_pstr.xl.bed.gz
     ## cat mstr.bed | sort -k1,1 -k2,2n | pigz > ${name}_mstr.xl.bed.gz
@@ -965,7 +965,6 @@ if ('paraclu' in callers) {
             bedtools merge -s -c 5,6 -o sum,distinct -i all_clusters.txt | \\
             awk '{OFS = "\t"; coord=\$1 ":" \$2 "-" \$3 }  {print \$1, \$2, \$3, coord, \$4, \$5}' > merged_clusters.bed
 
-
             pigz -d -c $ctss > xl.txt
             bedtools intersect -a merged_clusters.bed -b xl.txt -wao -s > ${name}_ov_peaks_ctss.bed;
             bedtools groupby -i ${name}_ov_peaks_ctss.bed -g 1,2,3,6,4 -c 11 -o sum | \\
@@ -985,7 +984,7 @@ if ('paraclu' in callers) {
             * STEP 8b2 - Generate count matrix
             */
             process generate_count_matrix {
-                publishDir "${params.outdir}/ctss/", mode: params.publish_dir_mode
+                publishDir "${params.outdir}/ctss", mode: params.publish_dir_mode
 
                 input:
                 file counts from ch_count_bed.collect()
