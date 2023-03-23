@@ -831,6 +831,15 @@ process get_crosslinks {
     zcat ${name}.xl.bed.gz | awk '{OFS = "\t"}{if (\$6 == "+") {print \$1, \$2, \$3, \$5} else {print \$1, \$2, \$3, -\$5}}' | pigz > ${name}.xl.bedgraph.gz
     ## cat pstr.bed | awk '{OFS = "\t"}{if (\$6 == "+") {print \$1, \$2, \$3, \$5} else {print \$1, \$2, \$3, -\$5}}' | pigz > ${name}_pstr.xl.bedgraph.gz
     ## cat mstr.bed | awk '{OFS = "\t"}{if (\$6 == "+") {print \$1, \$2, \$3, \$5} else {print \$1, \$2, \$3, -\$5}}' | pigz > ${name}_mstr.xl.bedgraph.gz
+
+
+    out_file="MillionsTags.txt";
+    echo -e 'Sample\tMillions_tags\tScaleFactor' > $out_file;
+    
+    Mtags=`awk '{total = total + \$4}END{print total/1000000}' "${name}.ns.bedgraph"`;
+	ScaleFactor=`awk '{total = total + \$4}END{print 1/(total/1000000)}' "${name}.ns.bedgraph"`;
+    bedtools genomecov -dz -strand + -5 -i shifted.bed -g $fai -scale $ScaleFactor | awk '{OFS="\t"}{print \$1, \$2, \$2+1, ".", \$3, "+"}' > pstr_tpm.bed;
+	bedtools genomecov -dz -strand - -5 -i shifted.bed -g $fai -scale $ScaleFactor | awk '{OFS="\t"}{print \$1, \$2, \$2+1, ".", \$3, "-"}' > mstr_tpm.bed;
     """
 }
 
