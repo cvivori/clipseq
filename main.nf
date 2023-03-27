@@ -817,6 +817,7 @@ process get_crosslinks {
     path("*.xl.bed.gz") into ch_xlinks_qc
     // path("${name}.ns.bedgraph.gz") into ch_bedgraphs_forbigwig
     path("${name}.xl_tpm.bedgraph.gz") into ch_bedgraphs_tpm
+    path("${name}.xl_tpm.bed.gz") into ch_bedgraphs_tpm
 
     script:
     """
