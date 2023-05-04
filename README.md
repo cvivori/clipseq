@@ -13,7 +13,7 @@
 
 **nf-core/clipseq** is a bioinformatics best-practice analysis pipeline for CLIP (cross-linking and immunoprecipitation) sequencing data analysis to study RNA-protein interactions.
 
-The pipeline is built using [Nextflow](https://www.nextflow.io), a workflow tool to run tasks across multiple compute infrastructures in a very portable manner. It comes with docker containers making installation trivial and results highly reproducible.
+The pipeline is built using [Nextflow](https://www.nextflow.io), a workflow tool to run tasks across multiple compute infrastructures in a very portable manner. It comes with docker containers making installation trivial and results highly reproducible..
 
 ## Pipeline Summary
 
