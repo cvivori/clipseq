@@ -164,7 +164,7 @@ if (params.input) {
     Channel
         .fromPath(params.input, checkIfExists: true)
         .splitCsv(header:true)
-        .map{ row -> [ row.sample, file(row.fastq, checkIfExists: true) ] }
+        .map{ row -> [ row.sample, file(row.fastq1, checkIfExists: true), file(row.fastq2, checkIfExists: true) ] }
         .into{ ch_fastq; ch_fastq_fastqc_pretrim }
 } else {
     exit 1, "Samples comma-separated input file not specified"
@@ -525,6 +525,7 @@ process fastqc {
 
     input:
     tuple val(name), path(reads) from ch_fastq_fastqc_pretrim
+    tuple val(name), path(reads) from ch_fastq_fastqc_pretrim
 
     output:
     file "*fastqc.{zip,html}" into ch_fastqc_pretrim_mqc
@@ -555,18 +556,19 @@ if (params.move_umi) {
                     }
 
         input:
-        tuple val(name), path(reads) from ch_fastq
+        tuple val(name), path(reads1), path(reads2) from ch_fastq
 
         output:
-        tuple val(name), path("${name}.umi.fastq.gz") into ch_umi_moved
+        tuple val(name), path("${name}_R1.umi.fastq.gz"), path("${name}_R1.umi.fastq.gz") into ch_umi_moved
 
         script:
         """
         umi_tools \\
             extract \\
             -p "$params.move_umi" \\
-            -I $reads \\
-            -S ${name}.umi.fastq.gz
+            -I $reads1 \\
+            -S ${name}_R1.umi.fastq.gz \\
+            --read2-in=$reads2 --read2-out=${name}_R2.umi.fastq.gz
         """
     }
 } else {
@@ -607,7 +609,7 @@ process cutadapt {
     publishDir "${params.outdir}/cutadapt", mode: params.publish_dir_mode
 
     input:
-    tuple val(name), path(reads) from ch_umi_moved
+    tuple val(name), path(reads1), path(reads2) from ch_umi_moved
 
     output:
     tuple val(name), path("${name}.trimmed.fastq.gz") into ch_trimmed
@@ -617,7 +619,7 @@ process cutadapt {
     script:
     """
     ln -s $reads ${name}.fastq.gz
-    cutadapt -j ${task.cpus} -a ${params.adapter} -m 20 -o ${name}.trimmed.fastq.gz ${name}.fastq.gz > ${name}_cutadapt.log
+    cutadapt -j ${task.cpus} -a ${params.adapter} -m 20 -o ${name}_R1.trimmed.fastq.gz -p ${name}_R2.trimmed.fastq.gz ${name}.fastq.gz > ${name}_cutadapt.log
     """
     }
     
