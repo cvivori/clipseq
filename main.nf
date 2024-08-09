@@ -164,18 +164,17 @@ if (params.input) {
     Channel
         .fromPath(params.input, checkIfExists: true)
         .splitCsv(header:true)
-        .map { row ->
-            def (sample_name, read1, read2) = row
-            tuple(sample_name, read1, read2)
+        .map { row ->  [ row.sample, file(row.fastq1, checkIfExists: true), file(row.fastq2, checkIfExists: true) ]
+                tuple(sample, fastq1, fastq2)
         }
         .set { ch_fastq }
 
     Channel
         .fromPath(params.input, checkIfExists: true)
         .splitCsv(header:true)
-        .map { row ->
-        def reads = [read1, read2]
-        tuple(sample_name, reads)
+        .map { row -> [ row.sample, file(row.fastq1, checkIfExists: true), file(row.fastq2, checkIfExists: true) ]
+        def fastq = [fastq1, fastq2]
+        tuple(sample, fastq)
         }
         .set { ch_fastq_fastqc_pretrim }
 
