@@ -655,7 +655,7 @@ if (params.smrna_fasta) {
         publishDir "${params.outdir}/premap", mode: params.publish_dir_mode
 
         input:
-        tuple val(name), path(reads) from ch_trimmed
+        tuple val(name), path(read1), path(read2) from ch_trimmed
         path(index) from ch_bt2_index.collect()
 
         output:
@@ -665,7 +665,7 @@ if (params.smrna_fasta) {
 
         script:
         """
-        bowtie2 -p $task.cpus -x ${index[0].simpleName} --un-gz ${name}.unmapped.fastq.gz -U $reads 2> ${name}.premap.log | \
+        bowtie2 -p $task.cpus -x ${index[0].simpleName} --un-gz ${name}.unmapped.fastq.gz -1 $read1 -2 $read2 > ${name}.premap.log | \
         samtools sort -@ $task.cpus /dev/stdin > ${name}.premapped.bam && \
         samtools index -@ $task.cpus ${name}.premapped.bam
         """
