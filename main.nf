@@ -569,19 +569,19 @@ if (params.move_umi) {
                     }
 
         input:
-        tuple val(name), path(reads1), path(reads2) from ch_fastq
+        tuple val(name), path(read1), path(read2) from ch_fastq
 
         output:
-        tuple val(name), path("${name}_R1.umi.fastq.gz"), path("${name}_R1.umi.fastq.gz") into ch_umi_moved
+        tuple val(name), path("${name}_R1.umi.fastq.gz"), path("${name}_R2.umi.fastq.gz") into ch_umi_moved
 
         script:
         """
         umi_tools \\
             extract \\
             -p "$params.move_umi" \\
-            -I $reads1 \\
+            -I $read1 \\
             -S ${name}_R1.umi.fastq.gz \\
-            --read2-in=$reads2 --read2-out=${name}_R2.umi.fastq.gz
+            --read2-in=$read2 --read2-out=${name}_R2.umi.fastq.gz
         """
     }
 } else {
