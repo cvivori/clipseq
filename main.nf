@@ -176,6 +176,7 @@ if (params.input) {
         .map { row ->
         def reads = [read1, read2]
         tuple(sample_name, reads)
+        }
         .set { ch_fastq_fastqc_pretrim }
 
         // .map{ row -> [ row.sample, file(row.fastq1, checkIfExists: true), file(row.fastq2, checkIfExists: true) ] }
