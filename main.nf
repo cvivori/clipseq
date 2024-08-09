@@ -599,18 +599,21 @@ process cutadapt_univ {
     publishDir "${params.outdir}/cutadapt", mode: params.publish_dir_mode
 
     input:
-    tuple val(name), path(reads) from ch_umi_moved
+    tuple val(name), path(read1), path(read2) from ch_umi_moved
 
     output:
-    tuple val(name), path("${name}.trimmed.fastq.gz") into ch_trimmed
-    tuple val(name), path("${name}.untrimmed.fastq.gz") into ch_untrimmed
+    tuple val(name), path("${name}_R1.trimmed.fastq.gz"), path("${name}_R2.trimmed.fastq.gz") into ch_trimmed
+    tuple val(name), path("${name}_R1.untrimmed.fastq.gz"), path("${name}_R2.untrimmed.fastq.gz") into ch_untrimmed
     path "*.log" into ch_cutadapt_mqc
 
     script:
     """
-    ln -s $reads ${name}.fastq.gz
-    cutadapt -j ${task.cpus} -a ${params.adapter} -m 20 -o ${name}.trimmed1.fastq.gz ${name}.fastq.gz > ${name}_cutadapt.log
-    cutadapt -j ${task.cpus} -g ${params.universal_adapter} -m 20 -o ${name}.trimmed.fastq.gz --untrimmed-output ${name}.untrimmed.fastq.gz ${name}.trimmed1.fastq.gz > ${name}_cutadapt_univ.log 
+    ln -s $read1 ${name}_R1.fastq.gz
+    ln -s $read2 ${name}_R2.fastq.gz
+    cutadapt -j ${task.cpus} -a ${params.adapter} -m 20 -o ${name}_R1.trimmed1.fastq.gz -p ${name}_R2.trimmed1.fastq.gz ${name}_R1.fastq.gz ${name}_R2.fastq.gz > ${name}_cutadapt.log
+    cutadapt -j ${task.cpus} -g ${params.universal_adapter} -m 20 -o ${name}_R1.trimmed.fastq.gz -p ${name}_R2.trimmed.fastq.gz \
+                                                                    --untrimmed-output ${name}_R1.untrimmed.fastq.gz --untrimmed-paired-output ${name}_R2.untrimmed.fastq.gz \
+                                                                    ${name}_R1.trimmed1.fastq.gz ${name}_R2.trimmed1.fastq.gz > ${name}_cutadapt_univ.log 
     """
     }
 
@@ -622,17 +625,18 @@ process cutadapt {
     publishDir "${params.outdir}/cutadapt", mode: params.publish_dir_mode
 
     input:
-    tuple val(name), path(reads1), path(reads2) from ch_umi_moved
+    tuple val(name), path(read1), path(read2) from ch_umi_moved
 
     output:
-    tuple val(name), path("${name}.trimmed.fastq.gz") into ch_trimmed
+    tuple val(name), path("${name}_R1.trimmed.fastq.gz"), path("${name}_R2.trimmed.fastq.gz") into ch_trimmed
     // tuple val(name), path("${name}.untrimmed.fastq.gz") into ch_untrimmed
     path "*.log" into ch_cutadapt_mqc
 
     script:
     """
-    ln -s $reads ${name}.fastq.gz
-    cutadapt -j ${task.cpus} -a ${params.adapter} -m 20 -o ${name}_R1.trimmed.fastq.gz -p ${name}_R2.trimmed.fastq.gz ${name}.fastq.gz > ${name}_cutadapt.log
+    ln -s $read1 ${name}_R1.fastq.gz
+    ln -s $read2 ${name}_R2.fastq.gz
+    cutadapt -j ${task.cpus} -a ${params.adapter} -m 20 -o ${name}_R1.trimmed.fastq.gz -p ${name}_R2.trimmed.fastq.gz ${name}_R1.fastq.gz ${name}_R2.fastq.gz > ${name}_cutadapt.log
     """
     }
     
