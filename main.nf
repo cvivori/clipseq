@@ -171,7 +171,7 @@ if (params.input) {
             def fastq = fastqList[0].split(',')
             [sample, tuple(fastq)]
         }
-        .set { ch_fastq, ch_fastq_fastqc_pretrim }
+        .into { ch_fastq, ch_fastq_fastqc_pretrim }
 
     // Channel
     //     .fromPath(params.input, checkIfExists: true)
