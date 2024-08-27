@@ -169,14 +169,14 @@ if (params.input) {
         }
         .into { ch_fastq }
 
-    // Channel
-    //     .fromPath(params.input, checkIfExists: true)
-    //     .splitCsv(header:true)
-    //     .map { row -> [ row.sample, file(row.fastq1, checkIfExists: true), file(row.fastq2, checkIfExists: true) ]
-    //     def fastq = [fastq1, fastq2]
-    //     tuple(sample, fastq)
-    //     }
-    //     .set { ch_fastq_fastqc_pretrim }
+    Channel
+        .fromPath(params.input, checkIfExists: true)
+        .splitCsv(header:true)
+        .map { row -> [ row.sample, file(row.fastq1, checkIfExists: true), file(row.fastq2, checkIfExists: true) ]
+        def fastq = [fastq1, fastq2]
+        tuple(sample, fastq)
+        }
+        .set { ch_fastq_fastqc_pretrim }
 
 } else {
     exit 1, "Samples comma-separated input file not specified"
