@@ -164,14 +164,10 @@ if (params.input) {
     Channel
         .fromPath(params.input, checkIfExists: true)
         .splitCsv(header:true)
-        // .map { row ->  [ row.sample, file(row.fastq1, checkIfExists: true), file(row.fastq2, checkIfExists: true) ]
-        //         tuple(sample, fastq1, fastq2)
-        // }
-        .map { sample, fastqList ->
-            def fastq = fastqList[0].split(',')
-            [sample, tuple(fastq)]
+        .map { row ->  [ row.sample, file(row.fastq1, checkIfExists: true), file(row.fastq2, checkIfExists: true) ]
+                tuple(sample, fastq1, fastq2)
         }
-        .into { ch_fastq, ch_fastq_fastqc_pretrim }
+        .into { ch_fastq }
 
     // Channel
     //     .fromPath(params.input, checkIfExists: true)
@@ -182,8 +178,6 @@ if (params.input) {
     //     }
     //     .set { ch_fastq_fastqc_pretrim }
 
-        // .map{ row -> [ row.sample, file(row.fastq1, checkIfExists: true), file(row.fastq2, checkIfExists: true) ] }
-        // .into{ ch_fastq; ch_fastq_fastqc_pretrim }
 } else {
     exit 1, "Samples comma-separated input file not specified"
 }
