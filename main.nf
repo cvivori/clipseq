@@ -167,7 +167,7 @@ if (params.input) {
         .map { row ->  [ row.sample, file(row.fastq1, checkIfExists: true), file(row.fastq2, checkIfExists: true) ]
                 tuple(sample, fastq1, fastq2)
         }
-        .into { ch_fastq }
+        .set { ch_fastq }
 
     Channel
         .fromPath(params.input, checkIfExists: true)
