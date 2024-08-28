@@ -173,7 +173,7 @@ if (params.input) {
         .fromPath(params.input, checkIfExists: true)
         .splitCsv(header:true)
         .map { row -> [ row.sample, file(row.fastq1, checkIfExists: true), file(row.fastq2, checkIfExists: true) ]
-        def fastq = [fastq1, fastq2]
+                fastq = [fastq1, fastq2]
         tuple(sample, fastq)
         }
         .set { ch_fastq_fastqc_pretrim }
