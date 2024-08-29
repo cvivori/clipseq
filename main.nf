@@ -165,7 +165,7 @@ if (params.input) {
         .fromPath(params.input, checkIfExists: true)
         .splitCsv(header:true)
         .map { row ->  [ row.sample, file(row.fastq1, checkIfExists: true), file(row.fastq2, checkIfExists: true) ]
-                tuple(sample, fastq1, fastq2)
+                // tuple(sample, fastq1, fastq2)
         }
         .set { ch_fastq }
 
