@@ -673,9 +673,9 @@ if (params.smrna_fasta) {
 
         script:
         """
-        bowtie2 -p $task.cpus -x ${index[0].simpleName} --un-gz ${name}.unmapped.fastq.gz -1 $read1 -2 $read2 -S ${name}.premapped.bam > ${name}.premap.log 
-        ## samtools sort -@ $task.cpus - > ${name}.premapped.bam && \
-        ## samtools index -@ $task.cpus ${name}.premapped.bam
+        bowtie2 -p $task.cpus -x ${index[0].simpleName} --un-gz ${name}.unmapped.fastq.gz -1 $read1 -2 $read2 -S unsorted_${name}.premapped.bam > ${name}.premap.log 
+        samtools sort -@ $task.cpus unsorted_${name}.premapped.bam > ${name}.premapped.bam && \
+        samtools index -@ $task.cpus ${name}.premapped.bam
         """
     }
 } else {
