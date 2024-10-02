@@ -164,23 +164,28 @@ if (params.input) {
     Channel
         .fromPath(params.input, checkIfExists: true)
         .splitCsv(header:true)
-        .map { row ->  [ row.sample, file(row.fastq1, checkIfExists: true), file(row.fastq2, checkIfExists: true) ]
+        .map { row -> [ row.sample, file(row.fastq1, checkIfExists: true), file(row.fastq2, checkIfExists: true) ]
+        // .map { row ->  [ row.sample, file(row.fastq1, checkIfExists: true), file(row.fastq2, checkIfExists: true) ]
                 // tuple(sample, fastq1, fastq2)
         }
-        .set { ch_fastq }
+        .into { ch_fastq; ch_fastq_fastqc_pretrim }
+        // .view()
 
-    Channel
-        .fromPath(params.input, checkIfExists: true)
-        .splitCsv(header:true)
-        .map { row -> [ row.sample, file(row.fastq1, checkIfExists: true), file(row.fastq2, checkIfExists: true) ]
-                fastq = [fastq1, fastq2]
-        tuple(sample, fastq)
-        }
-        .set { ch_fastq_fastqc_pretrim }
+    // Channel
+    //     .fromPath(params.input, checkIfExists: true)
+    //     .splitCsv(header:true)
+    //     .map { row -> [ row.sample, row.fastq1, row.fastq2 ]
+    // //     .map { row -> [ row.sample, file(row.fastq1, checkIfExists: true), file(row.fastq2, checkIfExists: true) ]
+    // //             fastq = [fastq1, fastq2]
+    // //     tuple(sample, fastq)
+    //     }
+    //     .set { ch_fastq_fastqc_pretrim }
+    //     // .view()
 
 } else {
     exit 1, "Samples comma-separated input file not specified"
 }
+
 
 ////////////////////////////////////////////////////
 /* --         PRINT PARAMETER SUMMARY          -- */
@@ -536,21 +541,27 @@ process fastqc {
                 }
 
     input:
-    tuple val(name), path(reads) from ch_fastq_fastqc_pretrim
+    tuple val(name), path(read1), path(read2) from ch_fastq_fastqc_pretrim
 
     output:
     file "*fastqc.{zip,html}" into ch_fastqc_pretrim_mqc
+    // path("${name}_reads_fastqc") into ch_fastqc_pretrim_mqc
 
     script:
-    read_ext = reads.getName().split('\\.', 2)[1]
-    read_name = reads.getName().split('\\.', 2)[0]
-    new_reads = "${name}_reads_fastqc.${read_ext}"
-    new_reads_simple = "${name}_reads_fastqc"
+    // read1_ext = read1.getName().split('\\.', 2)[1]
+    // read1_name = read1.getName().split('\\.', 2)[0]
+    // new_read1 = "${name}_reads_fastqc.${read1_ext}"
+    new_read1_simple = "${name}_read1_fastq.gz"
+
+    // read2_ext = read2.getName().split('\\.', 2)[1]
+    // read2_name = read2.getName().split('\\.', 2)[0]
+    // new_read2 = "${name}_reads_fastqc.${read2_ext}"
+    new_read2_simple = "${name}_read2_fastq.gz"
+
     """
-    cp ${reads} ${new_reads}
-    fastqc --quiet --threads $task.cpus ${new_reads}
-    mv ${new_reads_simple}*.html ${name}_reads_fastqc.html
-    mv ${new_reads_simple}*.zip ${name}_reads_fastqc.zip
+    cp ${read1} ${new_read1_simple}
+    cp ${read2} ${new_read2_simple}
+    fastqc --quiet --threads $task.cpus ${new_read1_simple} ${new_read2_simple} 
     """
 }
 
