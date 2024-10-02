@@ -292,7 +292,7 @@ process get_software_versions {
     bowtie2 --version > v_bowtie2.txt
     STAR --version > v_star.txt
     samtools --version > v_samtools.txt
-    umi_tools --version > v_umi_tools.txt
+    umi_tools --version | tail -1 > v_umi_tools.txt
     bedtools --version > v_bedtools.txt
     preseq 2> v_preseq.txt
     # subread-align -v 2> v_subread.txt
