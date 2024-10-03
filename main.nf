@@ -292,7 +292,7 @@ process get_software_versions {
     bowtie2 --version > v_bowtie2.txt
     STAR --version > v_star.txt
     samtools --version > v_samtools.txt
-    umi_tools --version | tail -1 > v_umi_tools.txt
+    umi_tools --version > v_umi_tools.txt
     bedtools --version > v_bedtools.txt
     preseq 2> v_preseq.txt
     # subread-align -v 2> v_subread.txt
@@ -667,13 +667,13 @@ if (params.smrna_fasta) {
         path(index) from ch_bt2_index.collect()
 
         output:
-        tuple val(name), path("${name}.unmapped.fastq.gz") into ch_unmapped
+        tuple val(name), path("${name}_R1.unmapped.fastq.gz"), path("${name}_R2.unmapped.fastq.gz") into ch_unmapped
         tuple val(name), path("${name}.premapped.bam"), path("${name}.premapped.bam.bai")
         path "*.log" into ch_premap_mqc, ch_premap_qc
 
         script:
         """
-        bowtie2 -p $task.cpus -x ${index[0].simpleName} --un-gz ${name}.unmapped.fastq.gz -1 $read1 -2 $read2 -S unsorted_${name}.premapped.bam > ${name}.premap.log 
+        bowtie2 -p $task.cpus -x ${index[0].simpleName} --un-conc-gz ${name}_R%.unmapped.fastq.gz -1 $read1 -2 $read2 -S unsorted_${name}.premapped.bam > ${name}.premap.log 
         samtools sort -@ $task.cpus unsorted_${name}.premapped.bam > ${name}.premapped.bam && \
         samtools index -@ $task.cpus ${name}.premapped.bam
         """
