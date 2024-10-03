@@ -674,7 +674,7 @@ if (params.smrna_fasta) {
         script:
         """
         bowtie2 -p $task.cpus -x ${index[0].simpleName} --un-conc-gz ${name}_R%.unmapped.fastq.gz -1 $read1 -2 $read2 -S unsorted_${name}.premapped.bam > ${name}.premap.log 
-        samtools sort -@ $task.cpus -o ${name}.premapped.bam unsorted_${name}.premapped.bam && \
+        samtools sort -@ $task.cpus -o ${name}.premapped.bam unsorted_${name}.premapped.bam 
         samtools index -@ $task.cpus ${name}.premapped.bam
         """
     }
@@ -693,7 +693,7 @@ process align {
     publishDir "${params.outdir}/mapped", mode: params.publish_dir_mode
 
     input:
-    tuple val(name), path(read), path(read2) from ch_unmapped
+    tuple val(name), path(read1), path(read2) from ch_unmapped
     path(index) from ch_star_index.collect()
 
     output:
@@ -719,7 +719,7 @@ process align {
         --runThreadN $task.cpus \\
         --runMode alignReads \\
         --genomeDir $index \\
-        --readFilesIn $reads --readFilesCommand gunzip -c \\
+        --readFilesIn $read1 $read2 --readFilesCommand gunzip -c \\
         --quantMode GeneCounts \\
         --outFileNamePrefix ${name}. $clip_args
 
