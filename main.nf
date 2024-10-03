@@ -776,7 +776,7 @@ if (!params.skip_deduplication) {
         umi_tools \\
             dedup \\
             --umi-separator="$params.umi_separator" \\
-            -I $bam \\
+            -I $bam --paired\\
             -S ${name}.dedup.bam \\
             --output-stats=${name} \\
             --log=${name}.log
