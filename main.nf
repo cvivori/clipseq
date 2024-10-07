@@ -674,8 +674,8 @@ if (params.smrna_fasta) {
         script:
         """
         bowtie2 -p $task.cpus -x ${index[0].simpleName} --un-conc-gz ${name}_R%.unmapped.fastq.gz -1 $read1 -2 $read2 -S unsorted_${name}.premapped.bam > ${name}.premap.log 
-        Fastq_RemoveSpace_ReadName.py ${name}_R1.unmapped.fastq.gz
-        Fastq_RemoveSpace_ReadName.py ${name}_R2.unmapped.fastq.gz
+        ~/Scripts/Fastq_RemoveSpace_ReadName.py ${name}_R1.unmapped.fastq.gz
+        ~/Scripts/Fastq_RemoveSpace_ReadName.py ${name}_R2.unmapped.fastq.gz
         samtools sort -@ $task.cpus -o ${name}.premapped.bam unsorted_${name}.premapped.bam 
         samtools index -@ $task.cpus ${name}.premapped.bam
         """
