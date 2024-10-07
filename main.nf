@@ -667,13 +667,15 @@ if (params.smrna_fasta) {
         path(index) from ch_bt2_index.collect()
 
         output:
-        tuple val(name), path("${name}_R1.unmapped.fastq.gz"), path("${name}_R2.unmapped.fastq.gz") into ch_unmapped
+        tuple val(name), path("${name}_R1.unmapped_fixed.fastq.gz"), path("${name}_R2.unmapped_fixed.fastq.gz") into ch_unmapped
         tuple val(name), path("${name}.premapped.bam"), path("${name}.premapped.bam.bai")
         path "*.log" into ch_premap_mqc, ch_premap_qc
 
         script:
         """
         bowtie2 -p $task.cpus -x ${index[0].simpleName} --un-conc-gz ${name}_R%.unmapped.fastq.gz -1 $read1 -2 $read2 -S unsorted_${name}.premapped.bam > ${name}.premap.log 
+        python ~/Scripts/Fastq_RemoveSpace_ReadName.py -o fixed_fastq/ ${name}_R1.unmapped.fastq.gz
+        python ~/Scripts/Fastq_RemoveSpace_ReadName.py -o fixed_fastq/ ${name}_R2.unmapped.fastq.gz
         samtools sort -@ $task.cpus -o ${name}.premapped.bam unsorted_${name}.premapped.bam 
         samtools index -@ $task.cpus ${name}.premapped.bam
         """
